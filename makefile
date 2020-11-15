@@ -53,7 +53,7 @@ CWARNS= $(CWARNSCPP) $(CWARNSC)
 # -DLUA_USE_CTYPE -DLUA_USE_APICHECK
 # ('-ftrapv' for runtime checks of integer overflows)
 # -fsanitize=undefined -ftrapv -fno-inline
-# TESTS= -DLUA_USER_H='"ltests.h"' -O0 -g
+TESTS= -DLUA_USER_H='"ltests.h"' -O0 -g
 
 
 LOCAL = $(TESTS) $(CWARNS)
