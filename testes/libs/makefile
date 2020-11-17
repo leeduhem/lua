@@ -2,10 +2,10 @@
 # of the version being tested
 LUA_DIR = ../../
 
-CC = gcc
+CC = g++
 
 # compilation should generate Dynamic-Link Libraries
-CFLAGS = -Wall -std=gnu99 -O2 -I$(LUA_DIR) -fPIC -shared
+CFLAGS = -Wall -std=c++11 -O2 -I$(LUA_DIR) -fPIC -shared
 
 # libraries used by the tests
 all: lib1.so lib11.so lib2.so lib21.so lib2-v2.so
@@ -23,5 +23,5 @@ lib2.so: lib2.c $(LUA_DIR)/luaconf.h
 lib21.so: lib21.c $(LUA_DIR)/luaconf.h
 	$(CC) $(CFLAGS) -o lib21.so lib21.c
 
-lib2-v2.so: lib21.c $(LUA_DIR)/luaconf.h
+lib2-v2.so: lib22.c $(LUA_DIR)/luaconf.h
 	$(CC) $(CFLAGS) -o lib2-v2.so lib22.c

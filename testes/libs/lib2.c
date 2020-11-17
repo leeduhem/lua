@@ -1,6 +1,8 @@
 #include "lua.h"
 #include "lauxlib.h"
 
+__BEGIN_DECLS
+
 static int id (lua_State *L) {
   return lua_gettop(L);
 }
@@ -20,4 +22,4 @@ LUAMOD_API int luaopen_lib2 (lua_State *L) {
   return 1;
 }
 
-
+__END_DECLS
