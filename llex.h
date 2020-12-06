@@ -61,7 +61,7 @@ typedef struct Token {
 
 /* state of the lexer plus state of the parser when shared by all
    functions */
-typedef struct LexState {
+struct LexState {
   int current;  /* current character (charint) */
   int linenumber;  /* input line counter */
   int lastline;  /* line of last token 'consumed' */
@@ -75,17 +75,49 @@ typedef struct LexState {
   struct Dyndata *dyd;  /* dynamic structures used by the parser */
   TString *source;  /* current source name */
   TString *envn;  /* environment variable name */
-} LexState;
+
+  // Public interface
+  void set_input (lua_State *L, ZIO *z, TString *source, int firstchar);
+  TString *new_string (const char *str, size_t l);
+  void next_token ();
+  int look_ahead ();
+  l_noret syntax_error (const char *s);
+  const char *token2str (int token);
+};
 
 
 LUAI_FUNC void luaX_init (lua_State *L);
-LUAI_FUNC void luaX_setinput (lua_State *L, LexState *ls, ZIO *z,
-                              TString *source, int firstchar);
-LUAI_FUNC TString *luaX_newstring (LexState *ls, const char *str, size_t l);
-LUAI_FUNC void luaX_next (LexState *ls);
-LUAI_FUNC int luaX_lookahead (LexState *ls);
-LUAI_FUNC l_noret luaX_syntaxerror (LexState *ls, const char *s);
-LUAI_FUNC const char *luaX_token2str (LexState *ls, int token);
+
+LUAI_FUNC inline void luaX_setinput (lua_State *L, LexState *ls, ZIO *z,
+				     TString *source, int firstchar)
+{
+  ls->set_input(L, z, source, firstchar);
+}
+
+LUAI_FUNC inline TString *luaX_newstring (LexState *ls, const char *str, size_t l)
+{
+  return ls->new_string(str, l);
+}
+
+LUAI_FUNC inline void luaX_next (LexState *ls)
+{
+  ls->next_token();
+}
+
+LUAI_FUNC inline int luaX_lookahead (LexState *ls)
+{
+  return ls->look_ahead();
+}
+
+LUAI_FUNC inline l_noret luaX_syntaxerror (LexState *ls, const char *s)
+{
+  ls->syntax_error(s);
+}
+
+LUAI_FUNC inline const char *luaX_token2str (LexState *ls, int token)
+{
+  return ls->token2str(token);
+}
 
 
 #endif

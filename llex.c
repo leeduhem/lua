@@ -79,17 +79,17 @@ void luaX_init (lua_State *L) {
 }
 
 
-const char *luaX_token2str (LexState *ls, int token) {
+const char *LexState::token2str (int token) {
   if (token < FIRST_RESERVED) {  /* single-byte symbols? */
     if (lisprint(token))
-      return luaO_pushfstring(ls->L, "'%c'", token);
+      return luaO_pushfstring(L, "'%c'", token);
     else  /* control character */
-      return luaO_pushfstring(ls->L, "'<\\%d>'", token);
+      return luaO_pushfstring(L, "'<\\%d>'", token);
   }
   else {
     const char *s = luaX_tokens[token - FIRST_RESERVED];
     if (token < TK_EOS)  /* fixed format (symbols and reserved words)? */
-      return luaO_pushfstring(ls->L, "'%s'", s);
+      return luaO_pushfstring(L, "'%s'", s);
     else  /* names, strings, and numerals */
       return s;
   }
@@ -116,32 +116,31 @@ static l_noret lexerror (LexState *ls, const char *msg, int token) {
 }
 
 
-l_noret luaX_syntaxerror (LexState *ls, const char *msg) {
-  lexerror(ls, msg, ls->t.token);
+l_noret LexState::syntax_error (const char *msg) {
+  lexerror(this, msg, t.token);
 }
 
 
 /*
 ** creates a new string and anchors it in scanner's table so that
 ** it will not be collected until the end of the compilation
-** (by that time it should be anchored somewhere)
+** (by that time it should be anchored somewhere else)
 */
-TString *luaX_newstring (LexState *ls, const char *str, size_t l) {
-  lua_State *L = ls->L;
-  TValue *o;  /* entry for 'str' */
-  TString *ts = luaS_newlstr(L, str, l);  /* create new string */
-  setsvalue2s(L, L->top++, ts);  /* temporarily anchor it in stack */
-  o = luaH_set(L, ls->h, s2v(L->top - 1));
-  if (isempty(o)) {  /* not in use yet? */
-    /* boolean value does not need GC barrier;
-       table is not a metatable, so it does not need to invalidate cache */
-    setbtvalue(o);  /* t[string] = true */
+
+TString *LexState::new_string (const char *str, size_t l)
+{
+  TString *ts = luaS_newlstr(L, str, l);  // create new string
+  setsvalue2s(L, L->top++, ts);  // temporarily anchor it in stack
+  TValue *o = luaH_set(L, h, s2v(L->top - 1));  // entry for 'str'
+  if (isempty(o)) {  // not in use yet?
+    // boolean value does not need GC barrier;
+    // table is not metatable, so it does not need to invalidate cache
+    setbtvalue(o);  // t[string] = true
     luaC_checkGC(L);
+  } else {  // string already present
+    ts = keystrval(nodefromval(o));  // re-use value previously stored
   }
-  else {  /* string already present */
-    ts = keystrval(nodefromval(o));  /* re-use value previously stored */
-  }
-  L->top--;  /* remove string from stack */
+  L->top--;  // remove string from stack
   return ts;
 }
 
@@ -161,19 +160,19 @@ static void inclinenumber (LexState *ls) {
 }
 
 
-void luaX_setinput (lua_State *L, LexState *ls, ZIO *z, TString *source,
-                    int firstchar) {
-  ls->t.token = 0;
-  ls->L = L;
-  ls->current = firstchar;
-  ls->lookahead.token = TK_EOS;  /* no look-ahead token */
-  ls->z = z;
-  ls->fs = NULL;
-  ls->linenumber = 1;
-  ls->lastline = 1;
-  ls->source = source;
-  ls->envn = luaS_newliteral(L, LUA_ENV);  /* get env name */
-  luaZ_resizebuffer(ls->L, ls->buff, LUA_MINBUFFER);  /* initialize buffer */
+void LexState::set_input (lua_State *L1, ZIO *z1, TString *source1,
+			 int firstchar) {
+  t.token = 0;
+  L = L1;
+  current = firstchar;
+  lookahead.token = TK_EOS;  /* no look-ahead token */
+  z = z1;
+  fs = NULL;
+  linenumber = 1;
+  lastline = 1;
+  source = source1;
+  envn = luaS_newliteral(L, LUA_ENV);  /* get env name */
+  luaZ_resizebuffer(L, buff, LUA_MINBUFFER);  /* initialize buffer */
 }
 
 
@@ -559,20 +558,19 @@ static int llex (LexState *ls, SemInfo *seminfo) {
 }
 
 
-void luaX_next (LexState *ls) {
-  ls->lastline = ls->linenumber;
-  if (ls->lookahead.token != TK_EOS) {  /* is there a look-ahead token? */
-    ls->t = ls->lookahead;  /* use this one */
-    ls->lookahead.token = TK_EOS;  /* and discharge it */
+void LexState::next_token () {
+  lastline = linenumber;
+  if (lookahead.token != TK_EOS) {  /* is there a look-ahead token? */
+    t = lookahead;  /* use this one */
+    lookahead.token = TK_EOS;  /* and discharge it */
   }
   else
-    ls->t.token = llex(ls, &ls->t.seminfo);  /* read next token */
+    t.token = llex(this, &t.seminfo);  /* read next token */
 }
 
 
-int luaX_lookahead (LexState *ls) {
-  lua_assert(ls->lookahead.token == TK_EOS);
-  ls->lookahead.token = llex(ls, &ls->lookahead.seminfo);
-  return ls->lookahead.token;
+int LexState::look_ahead () {
+  lua_assert(lookahead.token == TK_EOS);
+  lookahead.token = llex(this, &lookahead.seminfo);
+  return lookahead.token;
 }
-
