@@ -77,12 +77,40 @@ struct LexState {
   TString *envn;  /* environment variable name */
 
   // Public interface
+ public:
   void set_input (lua_State *L, ZIO *z, TString *source, int firstchar);
   TString *new_string (const char *str, size_t l);
   void next_token ();
   int look_ahead ();
-  l_noret syntax_error (const char *s);
+  l_noret syntax_error (const char *msg) { lexerror(msg, t.token); }
   const char *token2str (int token);
+
+ private:
+  void next() { current = zgetc(z); }
+  bool current_is_newline() { return current == '\n' || current == '\r'; }
+  void save_and_next() { save(current); next(); }
+
+  void save(int c);
+  const char *txtToken(int token);
+  l_noret lexerror(const char *msg, int token);
+  void increment_line_number();
+
+  int check_next1(int c);
+  int check_next2(const char *set);
+
+  int read_numeral(SemInfo *seminfo);
+  size_t skip_sep();
+  void read_long_string(SemInfo *seminfo, size_t sep);
+  void escape_check(int c, const char *msg);
+
+  int gethexa();
+  int readhexaesc();
+  unsigned long readutf8esc();
+  void utf8esc();
+  int readdecesc();
+  void read_string(int del, SemInfo *seminfo);
+
+  int llex(SemInfo *seminfo);
 };
 
 
