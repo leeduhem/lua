@@ -719,21 +719,9 @@ static void open_func (LexState *ls, FuncState *fs, BlockCnt *bl) {
   fs->prev = ls->fs;  /* linked list of funcstates */
   fs->ls = ls;
   ls->fs = fs;
-  fs->pc = 0;
   fs->previousline = f->linedefined;
-  fs->iwthabs = 0;
-  fs->lasttarget = 0;
-  fs->freereg = 0;
-  fs->nk = 0;
-  fs->nabslineinfo = 0;
-  fs->np = 0;
-  fs->nups = 0;
-  fs->ndebugvars = 0;
-  fs->nactvar = 0;
-  fs->needclose = 0;
   fs->firstlocal = ls->dyd->actvar.n;
   fs->firstlabel = ls->dyd->label.n;
-  fs->bl = NULL;
   f->source = ls->source;
   luaC_objbarrier(ls->L, f, f->source);
   f->maxstacksize = 2;  /* registers 0/1 are always valid */

@@ -141,26 +141,26 @@ struct BlockCnt;  /* defined in lparser.c */
 
 
 /* state needed to generate code for a given function */
-typedef struct FuncState {
-  Proto *f;  /* current function header */
-  struct FuncState *prev;  /* enclosing function */
-  struct LexState *ls;  /* lexical state */
-  struct BlockCnt *bl;  /* chain of current blocks */
-  int pc;  /* next position to code (equivalent to 'ncode') */
-  int lasttarget;   /* 'label' of last 'jump label' */
-  int previousline;  /* last line that was saved in 'lineinfo' */
-  int nk;  /* number of elements in 'k' */
-  int np;  /* number of elements in 'p' */
-  int nabslineinfo;  /* number of elements in 'abslineinfo' */
-  int firstlocal;  /* index of first local var (in Dyndata array) */
-  int firstlabel;  /* index of first label (in 'dyd->label->arr') */
-  short ndebugvars;  /* number of elements in 'f->locvars' */
-  lu_byte nactvar;  /* number of active local variables */
-  lu_byte nups;  /* number of upvalues */
-  lu_byte freereg;  /* first free register */
-  lu_byte iwthabs;  /* instructions issued since last absolute line info */
-  lu_byte needclose;  /* function needs to close upvalues when returning */
-} FuncState;
+struct FuncState {
+  Proto *f = NULL;  /* current function header */
+  struct FuncState *prev = NULL;  /* enclosing function */
+  struct LexState *ls = NULL;  /* lexical state */
+  struct BlockCnt *bl = NULL;  /* chain of current blocks */
+  int pc = 0;  /* next position to code (equivalent to 'ncode') */
+  int lasttarget = 0;   /* 'label' of last 'jump label' */
+  int previousline = 0;  /* last line that was saved in 'lineinfo' */
+  int nk = 0;  /* number of elements in 'k' */
+  int np = 0;  /* number of elements in 'p' */
+  int nabslineinfo = 0;  /* number of elements in 'abslineinfo' */
+  int firstlocal = 0;  /* index of first local var (in Dyndata array) */
+  int firstlabel = 0;  /* index of first label (in 'dyd->label->arr') */
+  short ndebugvars = 0;  /* number of elements in 'f->locvars' */
+  lu_byte nactvar = 0;  /* number of active local variables */
+  lu_byte nups = 0;  /* number of upvalues */
+  lu_byte freereg = 0;  /* first free register */
+  lu_byte iwthabs = 0;  /* instructions issued since last absolute line info */
+  lu_byte needclose = 0;  /* function needs to close upvalues when returning */
+};
 
 
 LUAI_FUNC int luaY_nvarstack (FuncState *fs);
