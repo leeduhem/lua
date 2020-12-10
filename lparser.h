@@ -142,10 +142,10 @@ struct BlockCnt;  /* defined in lparser.c */
 
 /* state needed to generate code for a given function */
 struct FuncState {
-  Proto *f = NULL;  /* current function header */
-  struct FuncState *prev = NULL;  /* enclosing function */
-  struct LexState *ls = NULL;  /* lexical state */
-  struct BlockCnt *bl = NULL;  /* chain of current blocks */
+  Proto *f = nullptr;  /* current function header */
+  struct FuncState *prev = nullptr;  /* enclosing function */
+  struct LexState *ls = nullptr;  /* lexical state */
+  struct BlockCnt *bl = nullptr;  /* chain of current blocks */
   int pc = 0;  /* next position to code (equivalent to 'ncode') */
   int lasttarget = 0;   /* 'label' of last 'jump label' */
   int previousline = 0;  /* last line that was saved in 'lineinfo' */
