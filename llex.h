@@ -116,36 +116,4 @@ struct LexState {
 
 LUAI_FUNC void luaX_init (lua_State *L);
 
-LUAI_FUNC inline void luaX_setinput (lua_State *L, LexState *ls, ZIO *z,
-				     TString *source, int firstchar)
-{
-  ls->set_input(L, z, source, firstchar);
-}
-
-LUAI_FUNC inline TString *luaX_newstring (LexState *ls, const char *str, size_t l)
-{
-  return ls->new_string(str, l);
-}
-
-LUAI_FUNC inline void luaX_next (LexState *ls)
-{
-  ls->next_token();
-}
-
-LUAI_FUNC inline int luaX_lookahead (LexState *ls)
-{
-  return ls->look_ahead();
-}
-
-LUAI_FUNC inline l_noret luaX_syntaxerror (LexState *ls, const char *s)
-{
-  ls->syntax_error(s);
-}
-
-LUAI_FUNC inline const char *luaX_token2str (LexState *ls, int token)
-{
-  return ls->token2str(token);
-}
-
-
 #endif

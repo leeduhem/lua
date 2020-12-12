@@ -44,7 +44,7 @@ static int codesJ (FuncState *fs, OpCode o, int sj, int k);
 /* semantic error */
 l_noret luaK_semerror (LexState *ls, const char *msg) {
   ls->t.token = 0;  /* remove "near <token>" from final message */
-  luaX_syntaxerror(ls, msg);
+  ls->syntax_error(msg);
 }
 
 
@@ -168,7 +168,7 @@ static void fixjump (FuncState *fs, int pc, int dest) {
   int offset = dest - (pc + 1);
   lua_assert(dest != NO_JUMP);
   if (!(-OFFSET_sJ <= offset && offset <= MAXARG_sJ - OFFSET_sJ))
-    luaX_syntaxerror(fs->ls, "control structure too long");
+    fs->ls->syntax_error("control structure too long");
   lua_assert(GET_OPCODE(*jmp) == OP_JMP);
   SETARG_sJ(*jmp, offset);
 }
@@ -475,8 +475,7 @@ void luaK_checkstack (FuncState *fs, int n) {
   int newstack = fs->freereg + n;
   if (newstack > fs->f->maxstacksize) {
     if (newstack >= MAXREGS)
-      luaX_syntaxerror(fs->ls,
-        "function or expression needs too many registers");
+      fs->ls->syntax_error("function or expression needs too many registers");
     fs->f->maxstacksize = cast_byte(newstack);
   }
 }
