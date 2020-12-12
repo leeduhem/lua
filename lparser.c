@@ -28,6 +28,7 @@
 #include "lstring.h"
 #include "ltable.h"
 
+#include <algorithm>
 
 
 /* maximum number of local variables per function (must be smaller
@@ -46,15 +47,14 @@
 /*
 ** nodes for block list (list of active blocks)
 */
-typedef struct BlockCnt {
-  struct BlockCnt *previous;  /* chain */
+struct BlockCnt {
   int firstlabel;  /* index of first label in this block */
   int firstgoto;  /* index of first pending goto in this block */
   lu_byte nactvar;  /* # active locals outside the block */
   lu_byte upval;  /* true if some variable in the block is an upvalue */
   lu_byte isloop;  /* true if 'block' is a loop */
   lu_byte insidetbc;  /* true if inside the scope of a to-be-closed var. */
-} BlockCnt;
+};
 
 
 
@@ -406,10 +406,11 @@ static int searchvar (FuncState *fs, TString *n, expdesc *var) {
 ** (to emit close instructions later).
 */
 static void markupval (FuncState *fs, int level) {
-  BlockCnt *bl = fs->bl;
-  while (bl->nactvar > level)
-    bl = bl->previous;
-  bl->upval = 1;
+  auto bs = fs->blocks;
+  auto bl = std::find_if_not(bs.rbegin(), bs.rend(),
+			     [level](BlockCnt *b) { return b->nactvar > level; });
+  lua_assert(bl != bs.rend());
+  (*bl)->upval = 1;
   fs->needclose = 1;
 }
 
@@ -570,9 +571,9 @@ static int newgotoentry (LexState *ls, TString *name, int line, int pc) {
 */
 static int solvegotos (LexState *ls, Labeldesc *lb) {
   Labellist *gl = &ls->dyd->gt;
-  int i = ls->fs->bl->firstgoto;
+  auto bl = ls->fs->blocks.back();
   int needsclose = 0;
-  while (i < gl->n) {
+  for (int i = bl->firstgoto; i < gl->n; ) {
     if (eqstr(gl->arr[i].name, lb->name)) {
       needsclose |= gl->arr[i].close;
       solvegoto(ls, i, lb);  /* will remove 'i' from the list */
@@ -598,7 +599,7 @@ static int createlabel (LexState *ls, TString *name, int line,
   int l = newlabelentry(ls, ll, name, line, luaK_getlabel(fs));
   if (last) {  /* label is last no-op statement in the block? */
     /* assume that locals are already out of scope */
-    ll->arr[l].nactvar = fs->bl->nactvar;
+    ll->arr[l].nactvar = fs->blocks.back()->nactvar;
   }
   if (solvegotos(ls, &ll->arr[l])) {  /* need close? */
     luaK_codeABC(fs, OP_CLOSE, luaY_nvarstack(fs), 0, 0);
@@ -630,9 +631,8 @@ static void enterblock (FuncState *fs, BlockCnt *bl, lu_byte isloop) {
   bl->firstlabel = fs->ls->dyd->label.n;
   bl->firstgoto = fs->ls->dyd->gt.n;
   bl->upval = 0;
-  bl->insidetbc = (fs->bl != nullptr && fs->bl->insidetbc);
-  bl->previous = fs->bl;
-  fs->bl = bl;
+  bl->insidetbc = (!fs->blocks.empty() && fs->blocks.back()->insidetbc);
+  fs->blocks.push_back(bl);
   lua_assert(fs->freereg == luaY_nvarstack(fs));
 }
 
@@ -655,25 +655,26 @@ static l_noret undefgoto (LexState *ls, Labeldesc *gt) {
 
 
 static void leaveblock (FuncState *fs) {
-  BlockCnt *bl = fs->bl;
+  auto bl = fs->blocks.back();
+  bool is_inner_block = fs->blocks.size() > 1;
   LexState *ls = fs->ls;
   int hasclose = 0;
   int stklevel = stacklevel(fs, bl->nactvar);  /* level outside the block */
   if (bl->isloop)  /* fix pending breaks? */
     hasclose = createlabel(ls, luaS_newliteral(ls->L, "break"), 0, 0);
-  if (!hasclose && bl->previous && bl->upval)
+  if (!hasclose && is_inner_block && bl->upval)
     luaK_codeABC(fs, OP_CLOSE, stklevel, 0, 0);
-  fs->bl = bl->previous;
   removevars(fs, bl->nactvar);
   lua_assert(bl->nactvar == fs->nactvar);
   fs->freereg = stklevel;  /* free registers */
   ls->dyd->label.n = bl->firstlabel;  /* remove local labels */
-  if (bl->previous)  /* inner block? */
+  if (is_inner_block)
     movegotosout(fs, bl);  /* update pending gotos to outer block */
   else {
     if (bl->firstgoto < ls->dyd->gt.n)  /* pending gotos in outer block? */
       undefgoto(ls, &ls->dyd->gt.arr[bl->firstgoto]);  /* error */
   }
+  fs->blocks.pop_back();
 }
 
 
@@ -731,7 +732,7 @@ static void close_func (LexState *ls) {
   Proto *f = fs->f;
   luaK_ret(fs, luaY_nvarstack(fs), 0);  /* final return */
   leaveblock(fs);
-  lua_assert(fs->bl == nullptr);
+  lua_assert(fs->blocks.empty());
   luaK_finish(fs);
   luaM_shrinkvector(L, f->code, f->sizecode, fs->pc, Instruction);
   luaM_shrinkvector(L, f->lineinfo, f->sizelineinfo, fs->pc, ls_byte);
@@ -1684,7 +1685,7 @@ static void checktoclose (LexState *ls, int level) {
   if (level != -1) {  /* is there a to-be-closed variable? */
     FuncState *fs = ls->fs;
     markupval(fs, level + 1);
-    fs->bl->insidetbc = 1;  /* in the scope of a to-be-closed variable */
+    fs->blocks.back()->insidetbc = 1; /* in the scope of a to-be-closed variable */
     luaK_codeABC(fs, OP_TBC, stacklevel(fs, level), 0, 0);
   }
 }
@@ -1785,7 +1786,8 @@ static void retstat (LexState *ls) {
     nret = explist(ls, &e);  /* optional return values */
     if (hasmultret(e.k)) {
       luaK_setmultret(fs, &e);
-      if (e.k == VCALL && nret == 1 && !fs->bl->insidetbc) {  /* tail call? */
+      auto bl = fs->blocks.back();
+      if (e.k == VCALL && nret == 1 && !bl->insidetbc) {  /* tail call? */
         SET_OPCODE(getinstruction(fs,&e), OP_TAILCALL);
         lua_assert(GETARG_A(getinstruction(fs,&e)) == luaY_nvarstack(fs));
       }

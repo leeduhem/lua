@@ -11,6 +11,7 @@
 #include "lobject.h"
 #include "lzio.h"
 
+#include <vector>
 
 /*
 ** Expression and variable descriptor.
@@ -145,7 +146,7 @@ struct FuncState {
   Proto *f = nullptr;  /* current function header */
   struct FuncState *prev = nullptr;  /* enclosing function */
   struct LexState *ls = nullptr;  /* lexical state */
-  struct BlockCnt *bl = nullptr;  /* chain of current blocks */
+  std::vector<BlockCnt *> blocks; // chain of current blocks
   int pc = 0;  /* next position to code (equivalent to 'ncode') */
   int lasttarget = 0;   /* 'label' of last 'jump label' */
   int previousline = 0;  /* last line that was saved in 'lineinfo' */
