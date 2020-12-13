@@ -81,7 +81,7 @@ struct LexState {
   void set_input (lua_State *L, ZIO *z, TString *source, int firstchar);
   TString *new_string (const char *str, size_t l);
   void next_token ();
-  int look_ahead ();
+  int lookahead_token ();
   l_noret syntax_error (const char *msg) { lexerror(msg, t.token); }
   const char *token2str (int token);
 

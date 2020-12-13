@@ -875,7 +875,7 @@ static void field (LexState *ls, ConsControl *cc) {
   /* field -> listfield | recfield */
   switch(ls->t.token) {
     case TK_NAME: {  /* may be 'listfield' or 'recfield' */
-      if (ls->look_ahead() != '=')  /* expression? */
+      if (ls->lookahead_token() != '=')  /* expression? */
         listfield(ls, cc);
       else
         recfield(ls, cc);

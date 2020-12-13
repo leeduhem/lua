@@ -543,7 +543,7 @@ void LexState::next_token () {
 }
 
 
-int LexState::look_ahead () {
+int LexState::lookahead_token () {
   lua_assert(lookahead.token == TK_EOS);
   lookahead.token = llex(&lookahead.seminfo);
   return lookahead.token;
