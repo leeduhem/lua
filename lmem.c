@@ -30,12 +30,14 @@
 */
 static void *firsttry (global_State *g, void *block, size_t os, size_t ns) {
   if (ttisnil(&g->nilvalue) && ns > os)
-    return NULL;  /* fail */
-  else  /* normal allocation */
-    return (*g->frealloc)(g->ud, block, os, ns);
+    return nullptr;  /* fail */
+  /* normal allocation */
+  return (*g->frealloc)(g->ud, block, os, ns);
 }
 #else
-#define firsttry(g,block,os,ns)    ((*g->frealloc)(g->ud, block, os, ns))
+static void *firsttry (global_State *g, void *block, size_t os, size_t ns) {
+  return (*g->frealloc)(g->ud, block, os, ns);
+}
 #endif
 
 
@@ -78,7 +80,6 @@ static void *firsttry (global_State *g, void *block, size_t os, size_t ns) {
 
 void *luaM_growaux_ (lua_State *L, void *block, int nelems, int *psize,
                      int size_elems, int limit, const char *what) {
-  void *newblock;
   int size = *psize;
   if (nelems + 1 <= size)  /* does one extra element still fit? */
     return block;  /* nothing to be done */
@@ -94,8 +95,8 @@ void *luaM_growaux_ (lua_State *L, void *block, int nelems, int *psize,
   }
   lua_assert(nelems + 1 <= size && size <= limit);
   /* 'limit' ensures that multiplication will not overflow */
-  newblock = luaM_saferealloc_(L, block, cast_sizet(*psize) * size_elems,
-                                         cast_sizet(size) * size_elems);
+  void *newblock = luaM_saferealloc_(L, block, cast_sizet(*psize) * size_elems,
+				     cast_sizet(size) * size_elems);
   *psize = size;  /* update only when everything else is OK */
   return newblock;
 }
@@ -109,11 +110,10 @@ void *luaM_growaux_ (lua_State *L, void *block, int nelems, int *psize,
 */
 void *luaM_shrinkvector_ (lua_State *L, void *block, int *size,
                           int final_n, int size_elem) {
-  void *newblock;
   size_t oldsize = cast_sizet((*size) * size_elem);
   size_t newsize = cast_sizet(final_n * size_elem);
   lua_assert(newsize <= oldsize);
-  newblock = luaM_saferealloc_(L, block, oldsize, newsize);
+  void *newblock = luaM_saferealloc_(L, block, oldsize, newsize);
   *size = final_n;
   return newblock;
 }
@@ -150,7 +150,7 @@ static void *tryagain (lua_State *L, void *block,
     luaC_fullgc(L, 1);  /* try to free some memory... */
     return (*g->frealloc)(g->ud, block, osize, nsize);  /* try again */
   }
-  else return NULL;  /* cannot free any memory without a full state */
+  return nullptr;  /* cannot free any memory without a full state */
 }
 
 
@@ -160,17 +160,16 @@ static void *tryagain (lua_State *L, void *block,
 ** GC shrinks some blocks and it is not reentrant.
 */
 void *luaM_realloc_ (lua_State *L, void *block, size_t osize, size_t nsize) {
-  void *newblock;
   global_State *g = G(L);
-  lua_assert((osize == 0) == (block == NULL));
-  newblock = firsttry(g, block, osize, nsize);
-  if (unlikely(newblock == NULL && nsize > 0)) {
+  lua_assert((osize == 0) == (block == nullptr));
+  void *newblock = firsttry(g, block, osize, nsize);
+  if (unlikely(newblock == nullptr && nsize > 0)) {
     if (nsize > osize)  /* not shrinking a block? */
       newblock = tryagain(L, block, osize, nsize);
-    if (newblock == NULL)  /* still no memory? */
-      return NULL;  /* do not update 'GCdebt' */
+    if (newblock == nullptr)  /* still no memory? */
+      return nullptr;  /* do not update 'GCdebt' */
   }
-  lua_assert((nsize == 0) == (newblock == NULL));
+  lua_assert((nsize == 0) == (newblock == nullptr));
   g->GCdebt = (g->GCdebt + nsize) - osize;
   return newblock;
 }
@@ -179,7 +178,7 @@ void *luaM_realloc_ (lua_State *L, void *block, size_t osize, size_t nsize) {
 void *luaM_saferealloc_ (lua_State *L, void *block, size_t osize,
                                                     size_t nsize) {
   void *newblock = luaM_realloc_(L, block, osize, nsize);
-  if (unlikely(newblock == NULL && nsize > 0))  /* allocation failed? */
+  if (unlikely(newblock == nullptr && nsize > 0))  /* allocation failed? */
     luaM_error(L);
   return newblock;
 }
@@ -187,16 +186,15 @@ void *luaM_saferealloc_ (lua_State *L, void *block, size_t osize,
 
 void *luaM_malloc_ (lua_State *L, size_t size, int tag) {
   if (size == 0)
-    return NULL;  /* that's all */
-  else {
-    global_State *g = G(L);
-    void *newblock = firsttry(g, NULL, tag, size);
-    if (unlikely(newblock == NULL)) {
-      newblock = tryagain(L, NULL, tag, size);
-      if (newblock == NULL)
-        luaM_error(L);
-    }
-    g->GCdebt += size;
-    return newblock;
+    return nullptr;  /* that's all */
+
+  global_State *g = G(L);
+  void *newblock = firsttry(g, nullptr, tag, size);
+  if (unlikely(newblock == nullptr)) {
+    newblock = tryagain(L, nullptr, tag, size);
+    if (newblock == nullptr)
+      luaM_error(L);
   }
+  g->GCdebt += size;
+  return newblock;
 }
