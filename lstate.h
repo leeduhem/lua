@@ -270,8 +270,7 @@ typedef struct global_State {
 /*
 ** 'per thread' state
 */
-struct lua_State {
-  CommonHeader;
+struct lua_State : public GCObject {
   lu_byte status;
   lu_byte allowhook;
   unsigned short nci;  /* number of items in 'ci' list */
@@ -292,6 +291,8 @@ struct lua_State {
   int basehookcount;
   int hookcount;
   volatile l_signalT hookmask;
+
+ lua_State(global_State *g, lu_byte tag) : GCObject(g, tag) {}
 };
 
 

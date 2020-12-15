@@ -21,6 +21,7 @@
 #include "lstate.h"
 #include "lstring.h"
 
+#include <new>
 
 /*
 ** Maximum size for string table.
@@ -138,7 +139,7 @@ void luaS_init (lua_State *L) {
 */
 static TString *createstrobj (lua_State *L, size_t l, int tag, unsigned int h) {
   size_t totalsize = sizelstring(l); /* total size of TString object */
-  GCObject *o = luaC_newobj(L, tag, totalsize);
+  GCObject *o = new (luaC_newobj(L, tag, totalsize)) TString(G(L), tag);
   TString *ts = gco2ts(o);
   ts->hash = h;
   ts->extra = 0;
@@ -248,7 +249,7 @@ TString *luaS_new (lua_State *L, const char *str) {
 Udata *luaS_newudata (lua_State *L, size_t s, int nuvalue) {
   if (unlikely(s > MAX_SIZE - udatamemoffset(nuvalue)))
     luaM_toobig(L);
-  GCObject *o = luaC_newobj(L, LUA_VUSERDATA, sizeudata(nuvalue, s));
+  GCObject *o = new (luaC_newobj(L, LUA_VUSERDATA, sizeudata(nuvalue, s))) Udata(G(L), LUA_VUSERDATA);
   Udata *u = gco2u(o);
   u->len = s;
   u->nuvalue = nuvalue;

@@ -22,10 +22,12 @@
 #include "lobject.h"
 #include "lstate.h"
 
+// for placement new
+#include <new>
 
 
 CClosure *luaF_newCclosure (lua_State *L, int nupvals) {
-  GCObject *o = luaC_newobj(L, LUA_VCCL, sizeCclosure(nupvals));
+  GCObject *o = new (luaC_newobj(L, LUA_VCCL, sizeCclosure(nupvals))) CClosure(G(L), LUA_VCCL);
   CClosure *c = gco2ccl(o);
   c->nupvalues = cast_byte(nupvals);
   return c;
@@ -33,7 +35,7 @@ CClosure *luaF_newCclosure (lua_State *L, int nupvals) {
 
 
 LClosure *luaF_newLclosure (lua_State *L, int nupvals) {
-  GCObject *o = luaC_newobj(L, LUA_VLCL, sizeLclosure(nupvals));
+  GCObject *o = new (luaC_newobj(L, LUA_VLCL, sizeLclosure(nupvals))) LClosure(G(L), LUA_VLCL);
   LClosure *c = gco2lcl(o);
   c->p = NULL;
   c->nupvalues = cast_byte(nupvals);
@@ -48,7 +50,7 @@ LClosure *luaF_newLclosure (lua_State *L, int nupvals) {
 void luaF_initupvals (lua_State *L, LClosure *cl) {
   int i;
   for (i = 0; i < cl->nupvalues; i++) {
-    GCObject *o = luaC_newobj(L, LUA_VUPVAL, sizeof(UpVal));
+    GCObject *o = new (luaC_newobj(L, LUA_VUPVAL, sizeof(UpVal))) UpVal(G(L), LUA_VUPVAL);
     UpVal *uv = gco2upv(o);
     uv->v = &uv->u.value;  /* make it closed */
     setnilvalue(uv->v);
@@ -63,7 +65,7 @@ void luaF_initupvals (lua_State *L, LClosure *cl) {
 ** open upvalues of 'L' after entry 'prev'.
 **/
 static UpVal *newupval (lua_State *L, int tbc, StkId level, UpVal **prev) {
-  GCObject *o = luaC_newobj(L, LUA_VUPVAL, sizeof(UpVal));
+  GCObject *o = new (luaC_newobj(L, LUA_VUPVAL, sizeof(UpVal))) UpVal(G(L), LUA_VUPVAL);
   UpVal *uv = gco2upv(o);
   UpVal *next = *prev;
   uv->v = s2v(level);  /* current value lives in the stack */
@@ -244,7 +246,7 @@ int luaF_close (lua_State *L, StkId level, int status) {
 
 
 Proto *luaF_newproto (lua_State *L) {
-  GCObject *o = luaC_newobj(L, LUA_VPROTO, sizeof(Proto));
+  GCObject *o = new (luaC_newobj(L, LUA_VPROTO, sizeof(Proto))) Proto(G(L), LUA_VPROTO);
   Proto *f = gco2p(o);
   f->k = NULL;
   f->sizek = 0;

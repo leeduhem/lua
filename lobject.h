@@ -47,7 +47,7 @@
 ** Union of all Lua values
 */
 typedef union Value {
-  struct GCObject *gc;    /* collectable objects */
+  GCObject *gc;    /* collectable objects */
   void *p;         /* light userdata */
   lua_CFunction f; /* light C functions */
   lua_Integer i;   /* integer numbers */
@@ -253,23 +253,23 @@ typedef StackValue *StkId;
 /* }================================================================== */
 
 
+struct global_State;  // defined in lstate.h
+
 /*
 ** {==================================================================
 ** Collectable Objects
 ** ===================================================================
 */
 
-/*
-** Common Header for all collectable objects (in macro form, to be
-** included in other objects)
-*/
-#define CommonHeader	struct GCObject *next; lu_byte tt; lu_byte marked
-
-
 /* Common type for all collectable objects */
-typedef struct GCObject {
-  CommonHeader;
-} GCObject;
+struct GCObject {
+  GCObject *next;
+  lu_byte tt;
+  lu_byte marked;
+
+  GCObject() = default;
+  GCObject(global_State *g, lu_byte tag);
+};
 
 
 /* Bit mark for collectable types */
@@ -361,8 +361,7 @@ typedef struct GCObject {
 /*
 ** Header for a string value.
 */
-typedef struct TString {
-  CommonHeader;
+struct TString : public GCObject {
   lu_byte extra;  /* reserved words for short strings; "has hash" for longs */
   lu_byte shrlen;  /* length for short strings */
   unsigned int hash;
@@ -371,7 +370,9 @@ typedef struct TString {
     struct TString *hnext;  /* linked list for hash table */
   } u;
   char contents[1];
-} TString;
+
+ TString(global_State *g, lu_byte tag) : GCObject(g, tag) {}
+};
 
 
 
@@ -436,14 +437,15 @@ typedef union UValue {
 ** Header for userdata with user values;
 ** memory area follows the end of this structure.
 */
-typedef struct Udata {
-  CommonHeader;
+struct Udata : public GCObject {
   unsigned short nuvalue;  /* number of user values */
   size_t len;  /* number of bytes */
   struct Table *metatable;
   GCObject *gclist;
   UValue uv[1];  /* user values */
-} Udata;
+
+ Udata(global_State *g, lu_byte tag) : GCObject(g, tag) {}
+};
 
 
 /*
@@ -455,13 +457,14 @@ typedef struct Udata {
 ** this representation. (The 'bindata' field in its end ensures correct
 ** alignment for binary data following this header.)
 */
-typedef struct Udata0 {
-  CommonHeader;
+struct Udata0 : public GCObject {
   unsigned short nuvalue;  /* number of user values */
   size_t len;  /* number of bytes */
   struct Table *metatable;
   union {LUAI_MAXALIGN;} bindata;
-} Udata0;
+
+ Udata0(global_State *g, lu_byte tag) : GCObject(g, tag) {}
+};
 
 
 /* compute the offset of the memory area of a userdata */
@@ -527,8 +530,7 @@ typedef struct AbsLineInfo {
 /*
 ** Function Prototypes
 */
-typedef struct Proto {
-  CommonHeader;
+struct Proto : public GCObject {
   lu_byte numparams;  /* number of fixed (named) parameters */
   lu_byte is_vararg;
   lu_byte maxstacksize;  /* number of registers needed by this function */
@@ -550,7 +552,9 @@ typedef struct Proto {
   LocVar *locvars;  /* information about local variables (debug information) */
   TString  *source;  /* used for debug information */
   GCObject *gclist;
-} Proto;
+
+ Proto(global_State *g, lu_byte tag) : GCObject(g, tag) {}
+};
 
 /* }================================================================== */
 
@@ -603,8 +607,7 @@ typedef struct Proto {
 /*
 ** Upvalues for Lua closures
 */
-typedef struct UpVal {
-  CommonHeader;
+struct UpVal : public GCObject {
   lu_byte tbc;  /* true if it represents a to-be-closed variable */
   TValue *v;  /* points to stack or to its own value */
   union {
@@ -614,25 +617,29 @@ typedef struct UpVal {
     } open;
     TValue value;  /* the value (when closed) */
   } u;
-} UpVal;
+
+ UpVal(global_State *g, lu_byte tag) : GCObject(g, tag) {}
+};
 
 
-
-#define ClosureHeader \
-	CommonHeader; lu_byte nupvalues; GCObject *gclist
-
-typedef struct CClosure {
-  ClosureHeader;
+struct CClosure : public GCObject {
+  lu_byte nupvalues;
+  GCObject *gclist;
   lua_CFunction f;
   TValue upvalue[1];  /* list of upvalues */
-} CClosure;
+
+  CClosure(global_State *g, lu_byte tag) : GCObject(g, tag) {}
+};
 
 
-typedef struct LClosure {
-  ClosureHeader;
+struct LClosure : public GCObject {
+  lu_byte nupvalues;
+  GCObject *gclist;
   struct Proto *p;
   UpVal *upvals[1];  /* list of upvalues */
-} LClosure;
+
+ LClosure(global_State *g, lu_byte tag) : GCObject(g, tag) {}
+};
 
 
 typedef union Closure {
@@ -711,8 +718,7 @@ typedef union Node {
 #define setnorealasize(t)	((t)->flags |= BITRAS)
 
 
-typedef struct Table {
-  CommonHeader;
+struct Table : public GCObject {
   lu_byte flags;  /* 1<<p means tagmethod(p) is not present */
   lu_byte lsizenode;  /* log2 of size of 'node' array */
   unsigned int alimit;  /* "limit" of 'array' array */
@@ -721,7 +727,10 @@ typedef struct Table {
   Node *lastfree;  /* any free position is before this position */
   struct Table *metatable;
   GCObject *gclist;
-} Table;
+
+  Table() = default;
+  Table(global_State *g, lu_byte tag) : GCObject(g, tag) {}
+};
 
 
 /*

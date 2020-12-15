@@ -590,3 +590,6 @@ void luaO_chunkid (char *out, const char *source, size_t srclen) {
   }
 }
 
+GCObject::GCObject(global_State *g, lu_byte tag) : next(g->allgc), tt(tag), marked(luaC_white(g)) {
+  g->allgc = this;
+}

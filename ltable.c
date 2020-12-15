@@ -38,6 +38,7 @@
 #include "ltable.h"
 #include "lvm.h"
 
+#include <new>
 
 /*
 ** MAXABITS is the largest integer such that MAXASIZE fits in an
@@ -594,7 +595,7 @@ static void rehash (lua_State *L, Table *t, const TValue *ek) {
 
 
 Table *luaH_new (lua_State *L) {
-  GCObject *o = luaC_newobj(L, LUA_VTABLE, sizeof(Table));
+  GCObject *o = new (luaC_newobj(L, LUA_VTABLE, sizeof(Table))) Table(G(L), LUA_VTABLE);
   Table *t = gco2t(o);
   t->metatable = NULL;
   t->flags = cast_byte(maskflags);  /* table has no metamethod fields */
