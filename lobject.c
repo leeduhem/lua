@@ -168,11 +168,10 @@ static lua_Number lua_strx2number (const char *s, char **endptr) {
   int sigdig = 0;  /* number of significant digits */
   int nosigdig = 0;  /* number of non-significant digits */
   int e = 0;  /* exponent correction */
-  int neg;  /* 1 if number is negative */
   int hasdot = 0;  /* true after seen a dot */
   *endptr = cast_charp(s);  /* nothing is valid yet */
   while (lisspace(cast_uchar(*s))) s++;  /* skip initial spaces */
-  neg = isneg(&s);  /* check sign */
+  int neg = isneg(&s);  /* check sign */
   if (!(*s == '0' && (*(s + 1) == 'x' || *(s + 1) == 'X')))  /* check '0x' */
     return 0.0;  /* invalid format (no '0x') */
   for (s += 2; ; s++) {  /* skip '0x' and read numeral */
@@ -249,12 +248,11 @@ static const char *l_str2dloc (const char *s, lua_Number *result, int mode) {
 ** - '.' just optimizes the search for the common case (no special chars)
 */
 static const char *l_str2d (const char *s, lua_Number *result) {
-  const char *endptr;
   const char *pmode = strpbrk(s, ".xXnN");  /* look for special chars */
   int mode = pmode ? ltolower(cast_uchar(*pmode)) : 0;
   if (mode == 'n')  /* reject 'inf' and 'nan' */
     return NULL;
-  endptr = l_str2dloc(s, result, mode);  /* try to convert */
+  const char *endptr = l_str2dloc(s, result, mode);  /* try to convert */
   if (endptr == NULL) {  /* failed? may be a different locale */
     char buff[L_MAXLENNUM + 1];
     const char *pdot = strchr(s, '.');
@@ -276,9 +274,8 @@ static const char *l_str2d (const char *s, lua_Number *result) {
 static const char *l_str2int (const char *s, lua_Integer *result) {
   lua_Unsigned a = 0;
   int empty = 1;
-  int neg;
   while (lisspace(cast_uchar(*s))) s++;  /* skip initial spaces */
-  neg = isneg(&s);
+  int neg = isneg(&s);
   if (s[0] == '0' &&
       (s[1] == 'x' || s[1] == 'X')) {  /* hex? */
     s += 2;  /* skip '0x' */
@@ -469,9 +466,9 @@ static void addnum2buff (BuffFS *buff, TValue *num) {
 */
 const char *luaO_pushvfstring (lua_State *L, const char *fmt, va_list argp) {
   BuffFS buff;  /* holds last part of the result */
-  const char *e;  /* points to next '%' */
   buff.pushed = buff.blen = 0;
   buff.L = L;
+  const char *e;  /* points to next '%' */
   while ((e = strchr(fmt, '%')) != NULL) {
     addstr2buff(&buff, fmt, e - fmt);  /* add 'fmt' up to '%' */
     switch (*(e + 1)) {  /* conversion specifier */
@@ -537,10 +534,9 @@ const char *luaO_pushvfstring (lua_State *L, const char *fmt, va_list argp) {
 
 
 const char *luaO_pushfstring (lua_State *L, const char *fmt, ...) {
-  const char *msg;
   va_list argp;
   va_start(argp, fmt);
-  msg = luaO_pushvfstring(L, fmt, argp);
+  const char *msg = luaO_pushvfstring(L, fmt, argp);
   va_end(argp);
   return msg;
 }
