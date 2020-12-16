@@ -48,8 +48,7 @@ LClosure *luaF_newLclosure (lua_State *L, int nupvals) {
 ** fill a closure with new closed upvalues
 */
 void luaF_initupvals (lua_State *L, LClosure *cl) {
-  int i;
-  for (i = 0; i < cl->nupvalues; i++) {
+  for (int i = 0; i < cl->nupvalues; i++) {
     GCObject *o = new (luaC_newobj(L, LUA_VUPVAL, sizeof(UpVal))) UpVal(G(L), LUA_VUPVAL);
     UpVal *uv = gco2upv(o);
     uv->v = &uv->u.value;  /* make it closed */
@@ -158,9 +157,8 @@ static int callclosemth (lua_State *L, StkId level, int status) {
       varerror(L, level, "attempt to close non-closable variable '%s'");
   }
   else {  /* must close the object in protected mode */
-    ptrdiff_t oldtop;
     level++;  /* space for error message */
-    oldtop = savestack(L, level + 1);  /* top will be after that */
+    ptrdiff_t oldtop = savestack(L, level + 1);  /* top will be after that */
     luaD_seterrorobj(L, status, level);  /* set error message */
     if (prepclosingmethod(L, uv, s2v(level))) {  /* something to call? */
       int newstatus = luaD_pcall(L, callclose, NULL, oldtop, 0);
@@ -197,11 +195,10 @@ void luaF_newtbcupval (lua_State *L, StkId level) {
   TValue *obj = s2v(level);
   lua_assert(L->openupval == NULL || uplevel(L->openupval) < level);
   if (!l_isfalse(obj)) {  /* false doesn't need to be closed */
-    int status;
     const TValue *tm = luaT_gettmbyobj(L, obj, TM_CLOSE);
     if (ttisnil(tm))  /* no metamethod? */
       varerror(L, level, "variable '%s' got a non-closable value");
-    status = luaD_rawrunprotected(L, trynewtbcupval, level);
+    int status = luaD_rawrunprotected(L, trynewtbcupval, level);
     if (unlikely(status != LUA_OK)) {  /* memory error creating upvalue? */
       lua_assert(status == LUA_ERRMEM);
       luaD_seterrorobj(L, LUA_ERRMEM, level + 1);  /* save error message */
@@ -248,26 +245,6 @@ int luaF_close (lua_State *L, StkId level, int status) {
 Proto *luaF_newproto (lua_State *L) {
   GCObject *o = new (luaC_newobj(L, LUA_VPROTO, sizeof(Proto))) Proto(G(L), LUA_VPROTO);
   Proto *f = gco2p(o);
-  f->k = NULL;
-  f->sizek = 0;
-  f->p = NULL;
-  f->sizep = 0;
-  f->code = NULL;
-  f->sizecode = 0;
-  f->lineinfo = NULL;
-  f->sizelineinfo = 0;
-  f->abslineinfo = NULL;
-  f->sizeabslineinfo = 0;
-  f->upvalues = NULL;
-  f->sizeupvalues = 0;
-  f->numparams = 0;
-  f->is_vararg = 0;
-  f->maxstacksize = 0;
-  f->locvars = NULL;
-  f->sizelocvars = 0;
-  f->linedefined = 0;
-  f->lastlinedefined = 0;
-  f->source = NULL;
   return f;
 }
 
@@ -289,8 +266,7 @@ void luaF_freeproto (lua_State *L, Proto *f) {
 ** Returns NULL if not found.
 */
 const char *luaF_getlocalname (const Proto *f, int local_number, int pc) {
-  int i;
-  for (i = 0; i<f->sizelocvars && f->locvars[i].startpc <= pc; i++) {
+  for (int i = 0; i<f->sizelocvars && f->locvars[i].startpc <= pc; i++) {
     if (pc < f->locvars[i].endpc) {  /* is variable active? */
       local_number--;
       if (local_number == 0)
