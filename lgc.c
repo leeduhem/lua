@@ -256,7 +256,6 @@ void luaC_fix (lua_State *L, GCObject *o) {
 ** it to 'allgc' list.
 */
 GCObject *luaC_newobj (lua_State *L, int tt, size_t sz) {
-  global_State *g = G(L);
   GCObject *o = cast(GCObject *, luaM_newobject(L, novariant(tt), sz));
   return o;
 }
