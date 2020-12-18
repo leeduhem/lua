@@ -116,8 +116,7 @@ static Instruction *previousinstruction (FuncState *fs) {
   static const Instruction invalidinstruction = ~(Instruction)0;
   if (fs->pc > fs->lasttarget)
     return &fs->f->code[fs->pc - 1];  /* previous instruction */
-  else
-    return cast(Instruction*, &invalidinstruction);
+  return cast(Instruction*, &invalidinstruction);
 }
 
 
@@ -154,8 +153,7 @@ static int getjump (FuncState *fs, int pc) {
   int offset = GETARG_sJ(fs->f->code[pc]);
   if (offset == NO_JUMP)  /* point to itself represents end of list */
     return NO_JUMP;  /* end of list */
-  else
-    return (pc+1)+offset;  /* turn offset into absolute position */
+  return (pc+1)+offset;  /* turn offset into absolute position */
 }
 
 
@@ -179,7 +177,7 @@ static void fixjump (FuncState *fs, int pc, int dest) {
 */
 void luaK_concat (FuncState *fs, int *l1, int l2) {
   if (l2 == NO_JUMP) return;  /* nothing to concatenate? */
-  else if (*l1 == NO_JUMP)  /* no original list? */
+  if (*l1 == NO_JUMP)  /* no original list? */
     *l1 = l2;  /* 'l1' points to 'l2' */
   else {
     int list = *l1;
@@ -243,8 +241,7 @@ static Instruction *getjumpcontrol (FuncState *fs, int pc) {
   Instruction *pi = &fs->f->code[pc];
   if (pc >= 1 && testTMode(GET_OPCODE(*(pi-1))))
     return pi-1;
-  else
-    return pi;
+  return pi;
 }
 
 
@@ -284,8 +281,7 @@ static void removevalues (FuncState *fs, int list) {
 ** registers: tests producing values jump to 'vtarget' (and put their
 ** values in 'reg'), other tests jump to 'dtarget'.
 */
-static void patchlistaux (FuncState *fs, int list, int vtarget, int reg,
-                          int dtarget) {
+static void patchlistaux (FuncState *fs, int list, int vtarget, int reg, int dtarget) {
   while (list != NO_JUMP) {
     int next = getjump(fs, list);
     if (patchtestreg(fs, list, reg))
@@ -459,11 +455,10 @@ static int codeextraarg (FuncState *fs, int a) {
 static int luaK_codek (FuncState *fs, int reg, int k) {
   if (k <= MAXARG_Bx)
     return luaK_codeABx(fs, OP_LOADK, reg, k);
-  else {
-    int p = luaK_codeABx(fs, OP_LOADKX, reg, 0);
-    codeextraarg(fs, k);
-    return p;
-  }
+
+  int p = luaK_codeABx(fs, OP_LOADKX, reg, 0);
+  codeextraarg(fs, k);
+  return p;
 }
 
 
@@ -549,17 +544,16 @@ static int addk (FuncState *fs, TValue *key, TValue *v) {
   lua_State *L = fs->ls->L;
   Proto *f = fs->f;
   TValue *idx = luaH_set(L, fs->ls->h, key);  /* index scanner table */
-  int k, oldsize;
   if (ttisinteger(idx)) {  /* is there an index there? */
-    k = cast_int(ivalue(idx));
+    int k = cast_int(ivalue(idx));
     /* correct value? (warning: must distinguish floats from integers!) */
     if (k < fs->nk && ttypetag(&f->k[k]) == ttypetag(v) &&
                       luaV_rawequalobj(&f->k[k], v))
       return k;  /* reuse index */
   }
   /* constant not found; create a new entry */
-  oldsize = f->sizek;
-  k = fs->nk;
+  int oldsize = f->sizek;
+  int k = fs->nk;
   /* numerical value does not need GC barrier;
      table has no metatable, so it does not need to invalidate cache */
   setivalue(idx, k);
@@ -902,7 +896,6 @@ static void exp2reg (FuncState *fs, expdesc *e, int reg) {
   if (e->k == VJMP)  /* expression itself is a test? */
     luaK_concat(fs, &e->t, e->u.info);  /* put this jump in 't' list */
   if (hasjumps(e)) {
-    int final;  /* position after whole expression */
     int p_f = NO_JUMP;  /* position of an eventual LOAD false */
     int p_t = NO_JUMP;  /* position of an eventual LOAD true */
     if (need_value(fs, e->t) || need_value(fs, e->f)) {
@@ -912,7 +905,7 @@ static void exp2reg (FuncState *fs, expdesc *e, int reg) {
       /* jump around these booleans if 'e' is not a test */
       luaK_patchtohere(fs, fj);
     }
-    final = luaK_getlabel(fs);
+    int final = luaK_getlabel(fs);  // position after whole expression
     patchlistaux(fs, e->f, final, reg, p_f);
     patchlistaux(fs, e->t, final, reg, p_t);
   }
@@ -1014,15 +1007,14 @@ static int luaK_exp2K (FuncState *fs, expdesc *e) {
 int luaK_exp2RK (FuncState *fs, expdesc *e) {
   if (luaK_exp2K(fs, e))
     return 1;
-  else {  /* not a constant in the right range: put it in a register */
-    luaK_exp2anyreg(fs, e);
-    return 0;
-  }
+
+  /* not a constant in the right range: put it in a register */
+  luaK_exp2anyreg(fs, e);
+  return 0;
 }
 
 
-static void codeABRK (FuncState *fs, OpCode o, int a, int b,
-                      expdesc *ec) {
+static void codeABRK (FuncState *fs, OpCode o, int a, int b, expdesc *ec) {
   int k = luaK_exp2RK(fs, ec);
   luaK_codeABCk(fs, o, a, b, ec->u.info, k);
 }
@@ -1069,9 +1061,8 @@ void luaK_storevar (FuncState *fs, expdesc *var, expdesc *ex) {
 ** Emit SELF instruction (convert expression 'e' into 'e:key(e,').
 */
 void luaK_self (FuncState *fs, expdesc *e, expdesc *key) {
-  int ereg;
   luaK_exp2anyreg(fs, e);
-  ereg = e->u.info;  /* register where 'e' was placed */
+  int ereg = e->u.info;  /* register where 'e' was placed */
   freeexp(fs, e);
   e->u.info = fs->freereg;  /* base register for op_self */
   e->k = VNONRELOC;  /* self expression has a fixed register */
@@ -1250,8 +1241,7 @@ static int isSCnumber (expdesc *e, int *pi, int *isfloat) {
     *pi = int2sC(cast_int(i));
     return 1;
   }
-  else
-    return 0;
+  return 0;
 }
 
 
@@ -1402,18 +1392,17 @@ static int finishbinexpneg (FuncState *fs, expdesc *e1, expdesc *e2,
                              OpCode op, int line, TMS event) {
   if (!luaK_isKint(e2))
     return 0;  /* not an integer constant */
-  else {
-    lua_Integer i2 = e2->u.ival;
-    if (!(fitsC(i2) && fitsC(-i2)))
-      return 0;  /* not in the proper range */
-    else {  /* operating a small integer constant */
-      int v2 = cast_int(i2);
-      finishbinexpval(fs, e1, e2, op, int2sC(-v2), 0, line, OP_MMBINI, event);
-      /* correct metamethod argument */
-      SETARG_B(fs->f->code[fs->pc - 1], int2sC(v2));
-      return 1;  /* successfully coded */
-    }
-  }
+
+  lua_Integer i2 = e2->u.ival;
+  if (!(fitsC(i2) && fitsC(-i2)))
+    return 0;  /* not in the proper range */
+
+  /* operating a small integer constant */
+  int v2 = cast_int(i2);
+  finishbinexpval(fs, e1, e2, op, int2sC(-v2), 0, line, OP_MMBINI, event);
+  /* correct metamethod argument */
+  SETARG_B(fs->f->code[fs->pc - 1], int2sC(v2));
+  return 1;  /* successfully coded */
 }
 
 
@@ -1469,19 +1458,17 @@ static void codecommutative (FuncState *fs, BinOpr op,
 static void codebitwise (FuncState *fs, BinOpr opr,
                          expdesc *e1, expdesc *e2, int line) {
   int flip = 0;
-  int v2;
-  OpCode op;
   if (e1->k == VKINT && luaK_exp2RK(fs, e1)) {
     swapexps(e1, e2);  /* 'e2' will be the constant operand */
     flip = 1;
   }
   else if (!(e2->k == VKINT && luaK_exp2RK(fs, e2))) {  /* no constants? */
-    op = cast(OpCode, opr + OP_ADD);
+    OpCode op = cast(OpCode, opr + OP_ADD);
     codebinexpval(fs, op, e1, e2, line);  /* all-register opcodes */
     return;
   }
-  v2 = e2->u.info;  /* index in K array */
-  op = cast(OpCode, opr + OP_ADDK);
+  int v2 = e2->u.info;  /* index in K array */
+  OpCode op = cast(OpCode, opr + OP_ADDK);
   lua_assert(ttisinteger(&fs->f->k[v2]));
   finishbinexpval(fs, e1, e2, op, v2, flip, line, OP_MMBINK,
                   cast(TMS, opr + TM_ADD));
@@ -1770,13 +1757,11 @@ void luaK_setlist (FuncState *fs, int base, int nelems, int tostore) {
 ** return the final target of a jump (skipping jumps to jumps)
 */
 static int finaltarget (Instruction *code, int i) {
-  int count;
-  for (count = 0; count < 100; count++) {  /* avoid infinite loops */
+  for (int count = 0; count < 100; count++) {  /* avoid infinite loops */
     Instruction pc = code[i];
     if (GET_OPCODE(pc) != OP_JMP)
-      break;
-     else
-       i += GETARG_sJ(pc) + 1;
+      return i;
+    i += GETARG_sJ(pc) + 1;
   }
   return i;
 }
@@ -1787,9 +1772,8 @@ static int finaltarget (Instruction *code, int i) {
 ** optimizations and adjustments.
 */
 void luaK_finish (FuncState *fs) {
-  int i;
   Proto *p = fs->f;
-  for (i = 0; i < fs->pc; i++) {
+  for (int i = 0; i < fs->pc; i++) {
     Instruction *pc = &p->code[i];
     lua_assert(i == 0 || isOT(*(pc - 1)) == isIT(*pc));
     switch (GET_OPCODE(*pc)) {
