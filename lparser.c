@@ -960,7 +960,7 @@ static void parlist (LexState *ls) {
 
 static void body (LexState *ls, expdesc *e, int ismethod, int line) {
   /* body ->  '(' parlist ')' block END */
-  FuncState new_fs;
+  FuncState new_fs(ls->L);
   BlockCnt bl;
   new_fs.f = addprototype(ls);
   new_fs.f->linedefined = line;
@@ -1905,7 +1905,7 @@ static void mainfunc (LexState *ls, FuncState *fs) {
 LClosure *luaY_parser (lua_State *L, ZIO *z, Mbuffer *buff,
                        Dyndata *dyd, const char *name, int firstchar) {
   LexState lexstate;
-  FuncState funcstate;
+  FuncState funcstate(L);
   LClosure *cl = luaF_newLclosure(L, 1);  /* create main closure */
   setclLvalue2s(L, L->top, cl);  /* anchor it (to avoid being collected) */
   luaD_inctop(L);

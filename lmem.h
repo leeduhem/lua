@@ -13,6 +13,7 @@
 #include "llimits.h"
 #include "lua.h"
 
+#include <memory>
 
 #define luaM_error(L)	luaD_throw(L, LUA_ERRMEM)
 
@@ -88,6 +89,44 @@ LUAI_FUNC void *luaM_growaux_ (lua_State *L, void *block, int nelems,
 LUAI_FUNC void *luaM_shrinkvector_ (lua_State *L, void *block, int *nelem,
                                     int final_n, int size_elem);
 LUAI_FUNC void *luaM_malloc_ (lua_State *L, size_t size, int tag);
+
+
+namespace lua
+{
+  template<typename T>
+    class lua_allocator : public std::allocator<T>
+    {
+    public:
+      typedef size_t size_type;
+      typedef T *pointer;
+
+      template<class U>
+	struct rebind
+	{
+	  typedef lua_allocator<U> other;
+	};
+
+      pointer allocate(size_type n, const void *hint = 0) {
+	(void)hint;
+	if (n == 0)
+	  return nullptr;
+
+	return (pointer)luaM_saferealloc_(L, nullptr, 0, n * sizeof(T));
+      }
+
+      void deallocate(pointer p, size_type n)
+      {
+	if (n == 0)
+	  return;
+	luaM_free_(L, p, n * sizeof(T));
+      }
+
+      lua_allocator(lua_State *ls) noexcept : std::allocator<T>(), L(ls) {}
+
+    private:
+      lua_State *L;
+    };
+}
 
 #endif
 
