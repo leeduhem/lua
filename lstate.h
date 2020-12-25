@@ -216,7 +216,7 @@ typedef struct CallInfo {
 /*
 ** 'global state', shared by all threads of this state
 */
-typedef struct global_State {
+struct global_State {
   lua_Alloc frealloc;  /* function to reallocate memory */
   void *ud;         /* auxiliary data to 'frealloc' */
   l_mem totalbytes;  /* number of bytes currently allocated - GCdebt */
@@ -232,7 +232,7 @@ typedef struct global_State {
   lu_byte gckind;  /* kind of GC running */
   lu_byte genminormul;  /* control for minor generational collections */
   lu_byte genmajormul;  /* control for major generational collections */
-  lu_byte gcrunning;  /* true if GC is running */
+  lu_byte gcrunning = 0;  /* true if GC is running */
   lu_byte gcemergency;  /* true if this is an emergency collection */
   lu_byte gcpause;  /* size of pause between successive GCs */
   lu_byte gcstepmul;  /* GC "speed" */
@@ -264,15 +264,17 @@ typedef struct global_State {
   TString *strcache[STRCACHE_N][STRCACHE_M];  /* cache for strings in API */
   lua_WarnFunction warnf;  /* warning function */
   void *ud_warn;         /* auxiliary data to 'warnf' */
-} global_State;
+
+  global_State() = default;
+};
 
 
 /*
 ** 'per thread' state
 */
 struct lua_State : public GCObject {
-  lu_byte status;
-  lu_byte allowhook;
+  lu_byte status = LUA_OK;
+  lu_byte allowhook = 1;
   unsigned short nci;  /* number of items in 'ci' list */
   StkId top;  /* first free slot in the stack */
   global_State *l_G;
@@ -292,7 +294,8 @@ struct lua_State : public GCObject {
   int hookcount;
   volatile l_signalT hookmask;
 
- lua_State(global_State *g, lu_byte tag) : GCObject(g, tag) {}
+  lua_State() = default;
+  lua_State(global_State *g, lu_byte tag) : GCObject(g, tag) {}
 };
 
 

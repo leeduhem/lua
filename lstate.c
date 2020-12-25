@@ -250,20 +250,7 @@ static void f_luaopen (lua_State *L, void *ud) {
 */
 static void preinit_thread (lua_State *L, global_State *g) {
   G(L) = g;
-  L->stack = NULL;
-  L->ci = NULL;
-  L->nci = 0;
   L->twups = L;  /* thread has no upvalues */
-  L->errorJmp = NULL;
-  L->hook = NULL;
-  L->hookmask = 0;
-  L->basehookcount = 0;
-  L->allowhook = 1;
-  resethookcount(L);
-  L->openupval = NULL;
-  L->status = LUA_OK;
-  L->errfunc = 0;
-  L->oldpc = 0;
 }
 
 
@@ -285,7 +272,8 @@ LUA_API lua_State *lua_newthread (lua_State *L) {
   global_State *g = G(L);
   luaC_checkGC(L);
   /* create new thread */
-  lua_State *L1 = &cast(LX *, luaM_newobject(L, LUA_TTHREAD, sizeof(LX)))->l;
+  LX *lx = new (cast(LX *, luaM_newobject(L, LUA_TTHREAD, sizeof(LX)))) LX();
+  lua_State *L1 = &lx->l;
   L1->marked = luaC_white(g);
   L1->tt = LUA_VTHREAD;
   /* link it on list 'allgc' */
@@ -344,6 +332,7 @@ int lua_resetthread (lua_State *L) {
 LUA_API lua_State *lua_newstate (lua_Alloc f, void *ud) {
   LG *l = cast(LG *, (*f)(ud, NULL, LUA_TTHREAD, sizeof(LG)));
   if (l == NULL) return NULL;
+  l = new (l) LG();
   lua_State *L = &l->l.l;
   global_State *g = &l->g;
   L->tt = LUA_VTHREAD;
@@ -351,33 +340,15 @@ LUA_API lua_State *lua_newstate (lua_Alloc f, void *ud) {
   L->marked = luaC_white(g);
   preinit_thread(L, g);
   g->allgc = obj2gco(L);  /* by now, only object is the main thread */
-  L->next = NULL;
-  L->nCcalls = 0;
   incnny(L);  /* main thread is always non yieldable */
   g->frealloc = f;
   g->ud = ud;
-  g->warnf = NULL;
-  g->ud_warn = NULL;
   g->mainthread = L;
   g->seed = luai_makeseed(L);
-  g->gcrunning = 0;  /* no GC while building state */
-  g->strt.size = g->strt.nuse = 0;
-  g->strt.hash = NULL;
   setnilvalue(&g->l_registry);
-  g->panic = NULL;
   g->gcstate = GCSpause;
   g->gckind = KGC_INC;
-  g->gcemergency = 0;
-  g->finobj = g->tobefnz = g->fixedgc = NULL;
-  g->firstold1 = g->survival = g->old1 = g->reallyold = NULL;
-  g->finobjsur = g->finobjold1 = g->finobjrold = NULL;
-  g->sweepgc = NULL;
-  g->gray = g->grayagain = NULL;
-  g->weak = g->ephemeron = g->allweak = NULL;
-  g->twups = NULL;
   g->totalbytes = sizeof(LG);
-  g->GCdebt = 0;
-  g->lastatomic = 0;
   setivalue(&g->nilvalue, 0);  /* to signal that state is not yet built */
   setgcparam(g->gcpause, LUAI_GCPAUSE);
   setgcparam(g->gcstepmul, LUAI_GCMUL);
