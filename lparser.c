@@ -28,15 +28,16 @@
 #include "lstring.h"
 #include "ltable.h"
 
+#include <new>
 #include <algorithm>
 
 
 /* maximum number of local variables per function (must be smaller
    than 250, due to the bytecode format) */
-#define MAXVARS		200
+constexpr int MAXVARS =	200;
 
 
-#define hasmultret(k)		((k) == VCALL || (k) == VVARARG)
+inline bool hasmultret(expkind k) { return (k == VCALL || k == VVARARG); }
 
 
 /* because all strings are unified by the scanner, the parser
@@ -72,12 +73,11 @@ static l_noret error_expected (LexState *ls, int token) {
 
 static l_noret errorlimit (FuncState *fs, int limit, const char *what) {
   lua_State *L = fs->ls->L;
-  const char *msg;
   int line = fs->f->linedefined;
   const char *where = (line == 0)
                       ? "main function"
                       : luaO_pushfstring(L, "function at line %d", line);
-  msg = luaO_pushfstring(L, "too many %s (limit is %d) in %s",
+  const char *msg = luaO_pushfstring(L, "too many %s (limit is %d) in %s",
                              what, limit, where);
   fs->ls->syntax_error(msg);
 }
@@ -96,7 +96,7 @@ static int testnext (LexState *ls, int c) {
     ls->next_token();
     return 1;
   }
-  else return 0;
+  return 0;
 }
 
 
@@ -140,9 +140,8 @@ static void check_match (LexState *ls, int what, int who, int where) {
 
 
 static TString *str_checkname (LexState *ls) {
-  TString *ts;
   check(ls, TK_NAME);
-  ts = ls->t.seminfo.ts;
+  TString *ts = ls->t.seminfo.ts;
   ls->next_token();
   return ts;
 }
@@ -168,8 +167,7 @@ static void codename (LexState *ls, expdesc *e) {
 
 
 /*
-** Register a new local variable in the active 'Proto' (for debug
-** information).
+** Register a new local variable in the active 'Proto' (for debug information).
 */
 static int registerlocalvar (LexState *ls, FuncState *fs, TString *varname) {
   Proto *f = fs->f;
@@ -186,19 +184,17 @@ static int registerlocalvar (LexState *ls, FuncState *fs, TString *varname) {
 
 
 /*
-** Create a new local variable with the given 'name'. Return its index
-** in the function.
+** Create a new local variable with the given 'name'. Return its index in the function.
 */
 static int new_localvar (LexState *ls, TString *name) {
   lua_State *L = ls->L;
   FuncState *fs = ls->fs;
   Dyndata *dyd = ls->dyd;
-  Vardesc *var;
   checklimit(fs, dyd->actvar.n + 1 - fs->firstlocal,
                  MAXVARS, "local variables");
-  luaM_growvector(L, dyd->actvar.arr, dyd->actvar.n + 1,
+  luaM_growvector(L, dyd->actvar.arr, dyd->actvar.n,
                   dyd->actvar.size, Vardesc, USHRT_MAX, "local variables");
-  var = &dyd->actvar.arr[dyd->actvar.n++];
+  Vardesc *var = new (&dyd->actvar.arr[dyd->actvar.n++]) Vardesc();
   var->vd.kind = VDKREG;  /* default */
   var->vd.name = name;
   return dyd->actvar.n - 1 - fs->firstlocal;
@@ -250,11 +246,10 @@ static LocVar *localdebuginfo (FuncState *fs, int vidx) {
   Vardesc *vd = getlocalvardesc(fs,  vidx);
   if (vd->vd.kind == RDKCTC)
     return nullptr;  /* no debug info. for constants */
-  else {
-    int idx = vd->vd.pidx;
-    lua_assert(idx < fs->ndebugvars);
-    return &fs->f->locvars[idx];
-  }
+
+  int idx = vd->vd.pidx;
+  lua_assert(idx < fs->ndebugvars);
+  return &fs->f->locvars[idx];
 }
 
 
@@ -319,8 +314,7 @@ static void adjustlocalvars (LexState *ls, int nvars) {
 
 
 /*
-** Close the scope for all variables up to level 'tolevel'.
-** (debug info.)
+** Close the scope for all variables up to level 'tolevel'. (debug info.)
 */
 static void removevars (FuncState *fs, int tolevel) {
   lua_assert(fs->nactvar >= tolevel);
@@ -334,8 +328,7 @@ static void removevars (FuncState *fs, int tolevel) {
 
 
 /*
-** Search the upvalues of the function 'fs' for one
-** with the given 'name'.
+** Search the upvalues of the function 'fs' for one with the given 'name'.
 */
 static int searchupvalue (FuncState *fs, TString *name) {
   Upvaldesc *up = fs->f->upvalues;
@@ -359,7 +352,7 @@ static Upvaldesc *allocupvalue (FuncState *fs) {
 
 
 static int newupvalue (FuncState *fs, TString *name, expdesc *v) {
-  Upvaldesc *up = allocupvalue(fs);
+  Upvaldesc *up = new (allocupvalue(fs)) Upvaldesc();
   FuncState *prev = fs->prev;
   if (v->k == VLOCAL) {
     up->instack = 1;
@@ -443,8 +436,7 @@ static void singlevaraux (FuncState *fs, TString *n, expdesc *var, int base) {
 
 
 /*
-** Find a variable with the given name 'n', handling global variables
-** too.
+** Find a variable with the given name 'n', handling global variables too.
 */
 static void singlevar (LexState *ls, expdesc *var) {
   TString *varname = str_checkname(ls);
@@ -495,8 +487,7 @@ inline void leavelevel(LexState *ls) {
 }
 
 /*
-** Generates an error that a goto jumps into the scope of some
-** local variable.
+** Generates an error that a goto jumps into the scope of some local variable.
 */
 static l_noret jumpscopeerror (LexState *ls, Labeldesc *gt) {
   const char *varname = getstr(getlocalvardesc(ls->fs, gt->nactvar)->vd.name);
@@ -530,11 +521,10 @@ static void solvegoto (LexState *ls, int g, Labeldesc *label) {
 static Labeldesc *findlabel (LexState *ls, TString *name) {
   Dyndata *dyd = ls->dyd;
   /* check labels in current function for a match */
-  for (int i = ls->fs->firstlabel; i < dyd->label.n; i++) {
-    Labeldesc *lb = &dyd->label.arr[i];
-    if (eqstr(lb->name, name))  /* correct label? */
-      return lb;
-  }
+  Labeldesc *begin = dyd->label.arr + ls->fs->firstlabel, *end = dyd->label.arr + dyd->label.n;
+  Labeldesc *lb = std::find_if(begin, end, [name] (const Labeldesc &l) { return eqstr(l.name, name); });
+  if (lb != end)
+    return lb;
   return nullptr;  /* label not found */
 }
 
@@ -547,11 +537,8 @@ static int newlabelentry (LexState *ls, Labellist *l, TString *name,
   int n = l->n;
   luaM_growvector(ls->L, l->arr, n, l->size,
                   Labeldesc, SHRT_MAX, "labels/gotos");
-  l->arr[n].name = name;
-  l->arr[n].line = line;
-  l->arr[n].nactvar = ls->fs->nactvar;
-  l->arr[n].close = 0;
-  l->arr[n].pc = pc;
+  Labeldesc *lb = l->arr + n;
+  lb = new (lb) Labeldesc(name, pc,line, ls->fs->nactvar, 0);
   l->n = n + 1;
   return n;
 }
@@ -590,8 +577,7 @@ static int solvegotos (LexState *ls, Labeldesc *lb) {
 ** a close instruction if necessary.
 ** Returns true iff it added a close instruction.
 */
-static int createlabel (LexState *ls, TString *name, int line,
-                        int last) {
+static int createlabel (LexState *ls, TString *name, int line, int last) {
   FuncState *fs = ls->fs;
   Labellist *ll = &ls->dyd->label;
   int l = newlabelentry(ls, ll, name, line, luaK_getlabel(fs));
@@ -613,13 +599,13 @@ static int createlabel (LexState *ls, TString *name, int line,
 static void movegotosout (FuncState *fs, BlockCnt *bl) {
   Labellist *gl = &fs->ls->dyd->gt;
   /* correct pending gotos to current block */
-  for (int i = bl->firstgoto; i < gl->n; i++) {  /* for each pending goto */
-    Labeldesc *gt = &gl->arr[i];
-    /* leaving a variable scope? */
-    if (stacklevel(fs, gt->nactvar) > stacklevel(fs, bl->nactvar))
-      gt->close |= bl->upval;  /* jump may need a close */
-    gt->nactvar = bl->nactvar;  /* update goto level */
-  }
+  std::for_each(gl->arr + bl->firstgoto, gl->arr + gl->n,
+		[fs, bl] (Labeldesc &gt) {
+		  // leaving a variable scope?
+		  if (stacklevel(fs, gt.nactvar) > stacklevel(fs, bl->nactvar))
+		    gt.close |= bl->upval;  // jump may need a close
+		  gt.nactvar = bl->nactvar;  // update goto level
+		});
 }
 
 
@@ -710,6 +696,7 @@ static void codeclosure (LexState *ls, expdesc *v) {
 
 
 static void open_func (LexState *ls, FuncState *fs, BlockCnt *bl) {
+  lua_assert(fs->prev == nullptr);
   Proto *f = fs->f;
   fs->prev = ls->fs;  /* linked list of funcstates */
   ls->fs = fs;
@@ -806,13 +793,13 @@ static void yindex (LexState *ls, expdesc *v) {
 */
 
 
-typedef struct ConsControl {
+struct ConsControl {
   expdesc v;  /* last list item read */
   expdesc *t;  /* table descriptor */
-  int nh;  /* total number of 'record' elements */
-  int na;  /* number of array elements already stored */
-  int tostore;  /* number of array elements pending to be stored */
-} ConsControl;
+  int nh = 0;  /* total number of 'record' elements */
+  int na = 0;  /* number of array elements already stored */
+  int tostore = 0;  /* number of array elements pending to be stored */
+};
 
 
 static void recfield (LexState *ls, ConsControl *cc) {
@@ -901,7 +888,6 @@ static void constructor (LexState *ls, expdesc *t) {
   int pc = luaK_codeABC(fs, OP_NEWTABLE, 0, 0, 0);
   ConsControl cc;
   luaK_code(fs, 0);  /* space for extra arg. */
-  cc.na = cc.nh = cc.tostore = 0;
   cc.t = t;
   init_exp(t, VNONRELOC, fs->freereg);  /* table will be at stack top */
   init_exp(&cc.v, VVOID, 0);  /* no value (yet) */

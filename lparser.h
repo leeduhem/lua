@@ -62,8 +62,8 @@ typedef enum {
 } expkind;
 
 
-#define vkisvar(k)	(VLOCAL <= (k) && (k) <= VINDEXSTR)
-#define vkisindexed(k)	(VINDEXED <= (k) && (k) <= VINDEXSTR)
+inline bool vkisvar(expkind k)     { return (VLOCAL <= k && k <= VINDEXSTR); }
+inline bool vkisindexed(expkind k) { return (VINDEXED <= k && k <= VINDEXSTR); }
 
 
 typedef struct expdesc {
@@ -94,7 +94,7 @@ typedef struct expdesc {
 #define RDKCTC		3   /* compile-time constant */
 
 /* description of an active local variable */
-typedef union Vardesc {
+union Vardesc {
   struct {
     TValuefields;  /* constant value (if it is a compile-time constant) */
     lu_byte kind;
@@ -103,18 +103,21 @@ typedef union Vardesc {
     TString *name;  /* variable name */
   } vd;
   TValue k;  /* constant value (if any) */
-} Vardesc;
+};
 
 
 
 /* description of pending goto statements and label statements */
-typedef struct Labeldesc {
+struct Labeldesc {
   TString *name;  /* label identifier */
   int pc;  /* position in code */
   int line;  /* line where it appeared */
   lu_byte nactvar;  /* number of active variables in that position */
   lu_byte close;  /* goto that escapes upvalues */
-} Labeldesc;
+
+  Labeldesc(TString *name1, int pc1, int line1, lu_byte nactvar1, lu_byte close1)
+    : name(name1), pc(pc1), line(line1), nactvar(nactvar1), close(close1) {}
+};
 
 
 /* list of labels or gotos */
