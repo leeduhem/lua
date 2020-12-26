@@ -32,7 +32,7 @@ static int luaB_print (lua_State *L) {
     lua_writestring(s, l);  /* print it */
     lua_pop(L, 1);  /* pop result */
   }
-  lua_writeline();
+  lua_writenewline();
   return 0;
 }
 
