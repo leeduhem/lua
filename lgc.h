@@ -57,15 +57,14 @@ inline bool keepinvariant(global_State *g) { return g->gcstate <= GCSatomic; }
 /*
 ** some useful bit tricks
 */
-#define resetbits(x,m)		((x) &= cast_byte(~(m)))
-#define setbits(x,m)		((x) |= (m))
-#define testbits(x,m)		((x) & (m))
-#define bitmask(b)		(1<<(b))
-#define bit2mask(b1,b2)		(bitmask(b1) | bitmask(b2))
-#define l_setbit(x,b)		setbits(x, bitmask(b))
-#define resetbit(x,b)		resetbits(x, bitmask(b))
-#define testbit(x,b)		testbits(x, bitmask(b))
-
+inline void resetbits(lu_byte &x, lu_byte m) { x &= cast_byte(~m); }
+inline void setbits(lu_byte &x, lu_byte m) { x |= m; }
+inline int testbits(int x, int m) { return x & m; }
+constexpr inline int bitmask(int b) { return 1 << b; }
+constexpr inline lu_byte bit2mask(lu_byte b1, lu_byte b2) { return bitmask(b1) | bitmask(b2); }
+inline void l_setbit(lu_byte &x, lu_byte b) { setbits(x, bitmask(b)); }
+inline void resetbit(lu_byte &x, lu_byte b) { resetbits(x, bitmask(b)); }
+inline int testbit(int x, int b) { return testbits(x, bitmask(b)); }
 
 /*
 ** Layout for bit use in 'marked' field. First three bits are used
@@ -95,8 +94,10 @@ inline bool isdead(const global_State *g, const GCObject *v) {
 }
 
 inline void changewhite(GCObject *x) { x->marked ^= WHITEBITS; }
-#define nw2black(x)  \
-	check_exp(!iswhite(x), l_setbit((x)->marked, BLACKBIT))
+
+inline void nw2black(GCObject *x) {
+  check_exp(!iswhite(x), l_setbit(x->marked, BLACKBIT));
+}
 
 inline lu_byte luaC_white(const global_State *g) { return g->currentwhite & WHITEBITS; }
 
