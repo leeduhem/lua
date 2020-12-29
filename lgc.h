@@ -93,7 +93,10 @@
 
 #define otherwhite(g)	((g)->currentwhite ^ WHITEBITS)
 #define isdeadm(ow,m)	((m) & (ow))
-#define isdead(g,v)	isdeadm(otherwhite(g), (v)->marked)
+
+inline bool isdead(const global_State *g, const GCObject *v) {
+  return isdeadm(otherwhite(g), v->marked);
+}
 
 #define changewhite(x)	((x)->marked ^= WHITEBITS)
 #define nw2black(x)  \

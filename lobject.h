@@ -15,7 +15,6 @@
 #include "llimits.h"
 #include "lua.h"
 
-
 /*
 ** Extra types for collectable non-values
 */
@@ -84,38 +83,12 @@ inline lu_byte ttypetag(const TValue *o) { return withvariant(rawtt(o)); }
 /* type of a TValue */
 inline lu_byte ttype(const TValue *o) { return novariant(rawtt(o)); }
 
-/* Macros to test type */
+/* Functions to test type */
 inline bool checktag(const TValue *o, const lu_byte t) { return rawtt(o) == t; }
 inline bool checktype(const TValue *o, const lu_byte t) { return ttype(o) == t; }
 
-
-/* Macros to set values */
-
 /* set a value's tag */
 inline void settt_(TValue *o, const lu_byte t) { o->tt_ = t; }
-
-
-/* main macro to copy values (from 'obj1' to 'obj2') */
-#define setobj(L,obj1,obj2) \
-	{ TValue *io1=(obj1); const TValue *io2=(obj2); \
-          io1->value_ = io2->value_; settt_(io1, io2->tt_); \
-	  checkliveness(L,io1); lua_assert(!isnonstrictnil(io1)); }
-
-/*
-** Different types of assignments, according to source and destination.
-** (They are mostly equal now, but may be different in the future.)
-*/
-
-/* from stack to stack */
-#define setobjs2s(L,o1,o2)	setobj(L,s2v(o1),s2v(o2))
-/* to stack (not from same stack) */
-#define setobj2s(L,o1,o2)	setobj(L,s2v(o1),o2)
-/* from table to same table */
-#define setobjt2t	setobj
-/* to new object */
-#define setobj2n	setobj
-/* to table */
-#define setobj2t	setobj
 
 
 /*
@@ -163,7 +136,7 @@ inline bool isabstkey(const TValue *v) { return checktag(v, LUA_VABSTKEY); }
 /*
 ** test for non-standard nils (used only in assertions)
 */
-inline bool isnonstrictnil(TValue *v) { return ttisnil(v) && !ttisstrictnil(v); }
+inline bool isnonstrictnil(const TValue *v) { return ttisnil(v) && !ttisstrictnil(v); }
 
 /*
 ** By default, entries with any kind of nil are considered empty.
@@ -238,7 +211,7 @@ inline void setgcovalue(lua_State *, TValue *o, GCObject *x) {
   val_(o).gc = x; settt_(o, ctb(x->tt));
 }
 
-/* Macros for internal tests */
+/* Functions for internal tests */
 
 /* collectable object has the same tag as the original value */
 inline bool righttt(const TValue *o) { return ttypetag(o) == gcvalue(o)->tt; }
@@ -249,9 +222,13 @@ inline bool righttt(const TValue *o) { return ttypetag(o) == gcvalue(o)->tt; }
 ** and it is not dead. The option 'L == NULL' allows other
 ** macros using this one to be used where L is not available.
 */
-#define checkliveness(L,obj) \
-	((void)L, lua_longassert(!iscollectable(obj) || \
-		(righttt(obj) && (L == NULL || !isdead(G(L),gcvalue(obj))))))
+const global_State *G(const lua_State*);
+bool isdead(const global_State *, const GCObject *);
+
+inline void checkliveness(const lua_State *L, const TValue *o) {
+  lua_longassert(!iscollectable(o)
+		 || (righttt(o) && (L == nullptr || !isdead(G(L), gcvalue(o)))));
+}
 
 /* }================================================================== */
 
@@ -266,14 +243,21 @@ constexpr lu_byte LUA_VTHREAD = makevariant(LUA_TTHREAD, 0);
 
 inline bool ttisthread(const TValue *o) { return checktag(o, ctb(LUA_VTHREAD)); }
 
-#define thvalue(o)	check_exp(ttisthread(o), gco2th(val_(o).gc))
+lua_State *gco2th(GCObject *);
+GCObject *obj2gco(lua_State *);
 
-#define setthvalue(L,obj,x) \
-  { TValue *io = (obj); lua_State *x_ = (x); \
-    val_(io).gc = obj2gco(x_); settt_(io, ctb(LUA_VTHREAD)); \
-    checkliveness(L,io); }
+inline lua_State *thvalue(const TValue *o) {
+  return check_exp(ttisthread(o), gco2th(val_(o).gc));
+}
 
-#define setthvalue2s(L,o,t)	setthvalue(L,s2v(o),t)
+inline void setthvalue(lua_State *L, TValue *obj, lua_State *x) {
+  val_(obj).gc = obj2gco(x); settt_(obj, ctb(LUA_VTHREAD));
+  checkliveness(L, obj);
+}
+
+inline void setthvalue2s(lua_State *L, StkId o, lua_State *t) {
+  setthvalue(L, s2v(o), t);
+}
 
 /* }================================================================== */
 
@@ -335,22 +319,6 @@ inline bool ttisstring(const TValue *o) { return checktype(o, LUA_TSTRING); }
 inline bool ttisshrstring(const TValue *o) { return checktag(o, ctb(LUA_VSHRSTR)); }
 inline bool ttislngstring(const TValue *o) { return checktag(o, ctb(LUA_VLNGSTR)); }
 
-#define tsvalueraw(v)	(gco2ts((v).gc))
-
-#define tsvalue(o)	check_exp(ttisstring(o), gco2ts(val_(o).gc))
-
-#define setsvalue(L,obj,x) \
-  { TValue *io = (obj); TString *x_ = (x); \
-    val_(io).gc = obj2gco(x_); settt_(io, ctb(x_->tt)); \
-    checkliveness(L,io); }
-
-/* set a string to the stack */
-#define setsvalue2s(L,o,s)	setsvalue(L,s2v(o),s)
-
-/* set a string to a new object */
-#define setsvalue2n	setsvalue
-
-
 /*
 ** Header for a string value.
 */
@@ -367,16 +335,40 @@ struct TString : public GCObject {
  TString(global_State *g, lu_byte tag) : GCObject(g, tag) {}
 };
 
-
-
 /*
 ** Get the actual string (array of bytes) from a 'TString'.
 */
 inline const char *getstr(const TString *ts) { return ts->contents; }
 inline char *getstr(TString *ts) { return ts->contents; }
 
+TString *gco2ts(GCObject *);
+TString *gco2ts(const GCObject *);
+GCObject *obj2gco(TString *);
+
+inline TString *tsvalue(const TValue *o) {
+  return check_exp(ttisstring(o), gco2ts(val_(o).gc));
+}
+
+inline TString *tsvalueraw(Value &v) { return gco2ts(v.gc); }
+inline TString *tsvalueraw(const Value &v) { return gco2ts(v.gc); }
+
+inline void setsvalue(lua_State *L, TValue *obj, TString *x) {
+  val_(obj).gc = obj2gco(x); settt_(obj, ctb(x->tt));
+  checkliveness(L, obj);
+}
+
+/* set a string to the stack */
+inline void setsvalue2s(lua_State *L, StkId o, TString *s) {
+  setsvalue(L, s2v(o), s);
+}
+
+/* set a string to a new object */
+inline void setsvalue2n(lua_State *L, TValue *obj, TString *x) {
+  setsvalue(L, obj, x);
+}
+
 /* get the actual string (array of bytes) from a Lua value */
-#define svalue(o)       getstr(tsvalue(o))
+inline const char *svalue(const TValue *o) { return getstr(tsvalue(o)); }
 
 /* get string length from 'TString *s' */
 inline size_t tsslen(const TString *ts) {
@@ -384,7 +376,9 @@ inline size_t tsslen(const TString *ts) {
 }
 
 /* get string length from 'TValue *o' */
-#define vslen(o)	tsslen(tsvalue(o))
+inline size_t vslen(const TValue *o) {
+  return tsslen(tsvalue(o));
+}
 
 /* }================================================================== */
 
@@ -405,20 +399,6 @@ constexpr lu_byte LUA_VUSERDATA = makevariant(LUA_TUSERDATA, 0);
 
 inline bool ttislightuserdata(const TValue *o) { return checktag(o, LUA_VLIGHTUSERDATA); }
 inline bool ttisfulluserdata(const TValue *o) { return checktag(o, ctb(LUA_VUSERDATA)); }
-
-#define uvalue(o)	check_exp(ttisfulluserdata(o), gco2u(val_(o).gc))
-
-inline void *pvalue(const TValue *o) { return check_exp(ttislightuserdata(o), val_(o).p); }
-inline void *pvalueraw(const Value &v) { return v.p; }
-
-inline void setpvalue(TValue *o, void *x) {
-  val_(o).p = x; settt_(o, LUA_VLIGHTUSERDATA);
-}
-
-#define setuvalue(L,obj,x) \
-  { TValue *io = (obj); Udata *x_ = (x); \
-    val_(io).gc = obj2gco(x_); settt_(io, ctb(LUA_VUSERDATA)); \
-    checkliveness(L,io); }
 
 
 /* Ensures that addresses after this type are always fully aligned. */
@@ -464,15 +444,35 @@ struct Udata0 : public GCObject {
 
 /* compute the offset of the memory area of a userdata */
 inline size_t udatamemoffset(unsigned short nuv) {
-  return nuv == 0 ? offsetof(Udata0, bindata)
+  return nuv == 0
+    ? offsetof(Udata0, bindata)
     : offsetof(Udata, uv) + sizeof(UValue) * (nuv);
 }
 
 /* get the address of the memory block inside 'Udata' */
-#define getudatamem(u)	(cast_charp(u) + udatamemoffset((u)->nuvalue))
+inline char *getudatamem(Udata *u) {
+  return cast_charp(u) + udatamemoffset(u->nuvalue);
+}
 
 /* compute the size of a userdata */
 inline size_t sizeudata(unsigned short nuv, size_t nb) { return udatamemoffset(nuv) + nb; }
+
+Udata *gco2u(GCObject *);
+GCObject *obj2gco(Udata *);
+
+inline Udata *uvalue(const TValue *o) { return check_exp(ttisfulluserdata(o), gco2u(val_(o).gc)); }
+
+inline void *pvalue(const TValue *o) { return check_exp(ttislightuserdata(o), val_(o).p); }
+inline void *pvalueraw(const Value &v) { return v.p; }
+
+inline void setpvalue(TValue *o, void *x) {
+  val_(o).p = x; settt_(o, LUA_VLIGHTUSERDATA);
+}
+
+inline void setuvalue(lua_State *L, TValue *obj, Udata *x) {
+  val_(obj).gc = obj2gco(x); settt_(obj, ctb(LUA_VUSERDATA));
+  checkliveness(L, obj);
+}
 
 /* }================================================================== */
 
@@ -577,29 +577,6 @@ inline bool ttisCclosure(const TValue *o) { return checktag(o, ctb(LUA_VCCL)); }
 
 inline bool isLfunction(const TValue *o) { return ttisLclosure(o); }
 
-#define clvalue(o)	check_exp(ttisclosure(o), gco2cl(val_(o).gc))
-#define clLvalue(o)	check_exp(ttisLclosure(o), gco2lcl(val_(o).gc))
-inline lua_CFunction fvalue(const TValue *o) { return check_exp(ttislcf(o), val_(o).f); }
-#define clCvalue(o)	check_exp(ttisCclosure(o), gco2ccl(val_(o).gc))
-
-inline lua_CFunction fvalueraw(const Value &v) { return v.f; }
-
-#define setclLvalue(L,obj,x) \
-  { TValue *io = (obj); LClosure *x_ = (x); \
-    val_(io).gc = obj2gco(x_); settt_(io, ctb(LUA_VLCL)); \
-    checkliveness(L,io); }
-
-#define setclLvalue2s(L,o,cl)	setclLvalue(L,s2v(o),cl)
-
-inline void setfvalue(TValue *o, lua_CFunction x) {
-  val_(o).f = x; settt_(o, LUA_VLCF);
-}
-
-#define setclCvalue(L,obj,x) \
-  { TValue *io = (obj); CClosure *x_ = (x); \
-    val_(io).gc = obj2gco(x_); settt_(io, ctb(LUA_VCCL)); \
-    checkliveness(L,io); }
-
 
 /*
 ** Upvalues for Lua closures
@@ -644,8 +621,39 @@ union Closure {
   LClosure l;
 };
 
+Closure *gco2cl(GCObject *);
+LClosure *gco2lcl(GCObject *);
+CClosure *gco2ccl(GCObject *);
 
-#define getproto(o)	(clLvalue(o)->p)
+GCObject *obj2gco(LClosure *);
+GCObject *obj2gco(CClosure *);
+
+inline Closure *clvalue(const TValue *o) { return check_exp(ttisclosure(o), gco2cl(val_(o).gc)); }
+inline LClosure* clLvalue(const TValue *o) { return check_exp(ttisLclosure(o), gco2lcl(val_(o).gc)); }
+inline CClosure *clCvalue(const TValue *o) { return check_exp(ttisCclosure(o), gco2ccl(val_(o).gc)); }
+
+inline lua_CFunction fvalue(const TValue *o) { return check_exp(ttislcf(o), val_(o).f); }
+inline lua_CFunction fvalueraw(const Value &v) { return v.f; }
+
+inline void setclLvalue(lua_State *L, TValue *obj, LClosure *x) {
+  val_(obj).gc = obj2gco(x); settt_(obj, ctb(LUA_VLCL));
+  checkliveness(L, obj);
+}
+
+inline void setclLvalue2s(lua_State *L, StkId o, LClosure *cl) {
+  setclLvalue(L, s2v(o), cl);
+}
+
+inline void setfvalue(TValue *o, lua_CFunction x) {
+  val_(o).f = x; settt_(o, LUA_VLCF);
+}
+
+inline void setclCvalue(lua_State *L, TValue *obj, CClosure *x) {
+  val_(obj).gc = obj2gco(x); settt_(obj, ctb(LUA_VCCL));
+  checkliveness(L, obj);
+}
+
+inline Proto *getproto(const TValue *o) { return clLvalue(o)->p; }
 
 /* }================================================================== */
 
@@ -659,15 +667,6 @@ union Closure {
 constexpr lu_byte LUA_VTABLE = makevariant(LUA_TTABLE, 0);
 
 inline bool ttistable(const TValue *o) { return checktag(o, ctb(LUA_VTABLE)); }
-
-#define hvalue(o)	check_exp(ttistable(o), gco2t(val_(o).gc))
-
-#define sethvalue(L,obj,x) \
-  { TValue *io = (obj); Table *x_ = (x); \
-    val_(io).gc = obj2gco(x_); settt_(io, ctb(LUA_VTABLE)); \
-    checkliveness(L,io); }
-
-#define sethvalue2s(L,o,h)	sethvalue(L,s2v(o),h)
 
 
 /*
@@ -690,18 +689,16 @@ union Node {
 
 
 /* copy a value into a key */
-#define setnodekey(L,node,obj) \
-	{ Node *n_=(node); const TValue *io_=(obj); \
-	  n_->u.key_val = io_->value_; n_->u.key_tt = io_->tt_; \
-	  checkliveness(L,io_); }
-
+inline void setnodekey(lua_State *L, Node *node, const TValue *obj) {
+  node->u.key_val = obj->value_; node->u.key_tt = obj->tt_;
+  checkliveness(L, obj);
+}
 
 /* copy a value from a key */
-#define getnodekey(L,obj,node) \
-	{ TValue *io_=(obj); const Node *n_=(node); \
-	  io_->value_ = n_->u.key_val; io_->tt_ = n_->u.key_tt; \
-	  checkliveness(L,io_); }
-
+inline void getnodekey(lua_State *L, TValue *obj, const Node *node) {
+  obj->value_ = node->u.key_val; obj->tt_ = node->u.key_tt;
+  checkliveness(L, obj);
+}
 
 /*
 ** About 'alimit': if 'isrealasize(t)' is true, then 'alimit' is the
@@ -742,7 +739,7 @@ inline bool keyisinteger(const Node *node) { return keytt(node) == LUA_VNUMINT; 
 inline lua_Integer keyival(Node *node) { return keyval(node).i; }
 inline lua_Integer keyival(const Node *node) { return keyval(node).i; }
 inline bool keyisshrstr(const Node *node) { return keytt(node) == ctb(LUA_VSHRSTR); }
-#define keystrval(node)		(gco2ts(keyval(node).gc))
+inline TString *keystrval(const Node *node) { return gco2ts(keyval(node).gc); }
 
 inline void setnilkey(Node *node) { keytt(node) = LUA_TNIL; }
 
@@ -760,8 +757,42 @@ inline GCObject *gckeyN(Node *node) { return keyiscollectable(node) ? gckey(node
 inline void setdeadkey(Node *node) { keytt(node) = LUA_TDEADKEY; }
 inline bool keyisdead(const Node *node) { return keytt(node) == LUA_TDEADKEY; }
 
+Table *gco2t(GCObject *);
+GCObject *obj2gco(Table *v);
+
+inline Table *hvalue(const TValue *o) { return check_exp(ttistable(o), gco2t(val_(o).gc)); }
+
+inline void sethvalue(lua_State *L, TValue *obj, Table *x) {
+  val_(obj).gc = obj2gco(x); settt_(obj, ctb(LUA_VTABLE));
+  checkliveness(L, obj);
+}
+
+inline void sethvalue2s(lua_State *L, StkId o, Table *h) { sethvalue(L, s2v(o), h); }
+
 /* }================================================================== */
 
+
+/* main function to copy values (from 'obj2' to 'obj1') */
+inline void setobj(lua_State *L, TValue *obj1, const TValue *obj2) {
+  obj1->value_ = obj2->value_; settt_(obj1, obj2->tt_);
+  checkliveness(L, obj1); lua_assert(!isnonstrictnil(obj1));
+}
+
+/*
+** Different types of assignments, according to source and destination.
+** (They are mostly equal now, but may be different in the future.)
+*/
+
+/* from stack to stack */
+inline void setobjs2s(lua_State *L, StkId o1, const StkId o2) { setobj(L, s2v(o1), s2v(o2)); }
+/* to stack (not from same stack) */
+inline void setobj2s(lua_State *L, StkId o1, const TValue *o2) { setobj(L, s2v(o1), o2); }
+/* from table to same table */
+inline void setobjt2t(lua_State *L, TValue *o1, const TValue *o2) { setobj(L, o1, o2); }
+/* to new object */
+inline void setobj2n(lua_State *L, TValue *o1, const TValue *o2) { setobj(L, o1, o2); }
+/* to table */
+inline void setobj2t(lua_State *L, TValue *o1, const TValue *o2) { setobj(L, o1, o2); }
 
 
 /*

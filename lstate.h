@@ -85,35 +85,6 @@
 */
 
 
-
-/*
-** About 'nCcalls':  This count has two parts: the lower 16 bits counts
-** the number of recursive invocations in the C stack; the higher
-** 16 bits counts the number of non-yieldable calls in the stack.
-** (They are together so that we can change and save both with one
-** instruction.)
-*/
-
-
-/* true if this thread does not have non-yieldable calls in the stack */
-#define yieldable(L)		(((L)->nCcalls & 0xffff0000) == 0)
-
-/* real number of C calls */
-#define getCcalls(L)	((L)->nCcalls & 0xffff)
-
-
-/* Increment the number of non-yieldable calls */
-#define incnny(L)	((L)->nCcalls += 0x10000)
-
-/* Decrement the number of non-yieldable calls */
-#define decnny(L)	((L)->nCcalls -= 0x10000)
-
-/* Non-yieldable call increment */
-#define nyci	(0x10000 | 1)
-
-
-
-
 struct lua_longjmp;  /* defined in ldo.c */
 
 
@@ -127,37 +98,23 @@ struct lua_longjmp;  /* defined in ldo.c */
 #endif
 
 
-/*
-** Extra stack space to handle TM calls and some other extras. This
-** space is not included in 'stack_last'. It is used only to avoid stack
-** checks, either because the element will be promptly popped or because
-** there will be a stack check soon after the push. Function frames
-** never use this extra space, so it does not need to be kept clean.
-*/
-#define EXTRA_STACK   5
-
-
-#define BASIC_STACK_SIZE        (2*LUA_MINSTACK)
-
-#define stacksize(th)	cast_int((th)->stack_last - (th)->stack)
-
 
 /* kinds of Garbage Collection */
-#define KGC_INC		0	/* incremental gc */
-#define KGC_GEN		1	/* generational gc */
+constexpr int KGC_INC = 0;  // incremental gc
+constexpr int KGC_GEN = 1;  // generational gc
 
 
-typedef struct stringtable {
+struct stringtable {
   TString **hash;
   int nuse;  /* number of elements */
   int size;
-} stringtable;
+};
 
 
 /*
 ** Information about a call.
 */
-typedef struct CallInfo {
+struct CallInfo {
   StkId func;  /* function index in the stack */
   StkId	top;  /* top for this function */
   struct CallInfo *previous, *next;  /* dynamic call link */
@@ -183,34 +140,34 @@ typedef struct CallInfo {
   } u2;
   short nresults;  /* expected number of results from this function */
   unsigned short callstatus;
-} CallInfo;
+};
 
 
 /*
 ** Bits in CallInfo status
 */
-#define CIST_OAH	(1<<0)	/* original value of 'allowhook' */
-#define CIST_C		(1<<1)	/* call is running a C function */
-#define CIST_FRESH	(1<<2)  /* call is on a fresh "luaV_execute" frame */
-#define CIST_HOOKED	(1<<3)	/* call is running a debug hook */
-#define CIST_YPCALL	(1<<4)	/* call is a yieldable protected call */
-#define CIST_TAIL	(1<<5)	/* call was tail called */
-#define CIST_HOOKYIELD	(1<<6)	/* last hook called yielded */
-#define CIST_FIN	(1<<7)  /* call is running a finalizer */
-#define CIST_TRAN	(1<<8)	/* 'ci' has transfer information */
+constexpr int CIST_OAH       = (1<<0);  /* original value of 'allowhook' */
+constexpr int CIST_C         = (1<<1);  /* call is running a C function */
+constexpr int CIST_FRESH     = (1<<2);  /* call is on a fresh "luaV_execute" frame */
+constexpr int CIST_HOOKED    = (1<<3);  /* call is running a debug hook */
+constexpr int CIST_YPCALL    = (1<<4);  /* call is a yieldable protected call */
+constexpr int CIST_TAIL      = (1<<5);  /* call was tail called */
+constexpr int CIST_HOOKYIELD = (1<<6);  /* last hook called yielded */
+constexpr int CIST_FIN       = (1<<7);  /* call is running a finalizer */
+constexpr int CIST_TRAN      = (1<<8);	/* 'ci' has transfer information */
 #if defined(LUA_COMPAT_LT_LE)
-#define CIST_LEQ	(1<<9)  /* using __lt for __le */
+constexpr int CIST_LEQ       = (1<<9);   /* using __lt for __le */
 #endif
 
 /* active function is a Lua function */
-#define isLua(ci)	(!((ci)->callstatus & CIST_C))
+inline bool isLua(CallInfo *ci) { return !(ci->callstatus & CIST_C); }
 
 /* call is running Lua code (not a hook) */
-#define isLuacode(ci)	(!((ci)->callstatus & (CIST_C | CIST_HOOKED)))
+inline  bool isLuacode(CallInfo *ci) { return !(ci->callstatus & (CIST_C | CIST_HOOKED)); }
 
 /* assume that CIST_OAH has offset 0 and that 'v' is strictly 0/1 */
-#define setoah(st,v)	((st) = ((st) & ~CIST_OAH) | (v))
-#define getoah(st)	((st) & CIST_OAH)
+inline void setoah(unsigned short st, lu_byte v) { st = (st & ~CIST_OAH) | v; }
+inline unsigned short getoah(unsigned short st) { return st & CIST_OAH; }
 
 
 /*
@@ -299,8 +256,47 @@ struct lua_State : public GCObject {
 };
 
 
-#define G(L)	(L->l_G)
+/*
+** About 'nCcalls':  This count has two parts: the lower 16 bits counts
+** the number of recursive invocations in the C stack; the higher
+** 16 bits counts the number of non-yieldable calls in the stack.
+** (They are together so that we can change and save both with one
+** instruction.)
+*/
 
+
+/* true if this thread does not have non-yieldable calls in the stack */
+
+inline bool yieldable(lua_State *L) { return (L->nCcalls & 0xffff0000) == 0; }
+
+/* real number of C calls */
+inline l_uint32 getCcalls(lua_State *L) { return L->nCcalls & 0xffff; }
+
+/* Increment the number of non-yieldable calls */
+inline l_uint32 incnny(lua_State *L) { return L->nCcalls += 0x10000; }
+
+/* Decrement the number of non-yieldable calls */
+inline l_uint32 decnny(lua_State *L) { return L->nCcalls -= 0x10000; }
+
+/* Non-yieldable call increment */
+constexpr int nyci = 0x10000 | 1;
+
+inline global_State *&G(lua_State *L) { return L->l_G; }
+inline const global_State *G(const lua_State *L) { return L->l_G; }
+
+/*
+** Extra stack space to handle TM calls and some other extras. This
+** space is not included in 'stack_last'. It is used only to avoid stack
+** checks, either because the element will be promptly popped or because
+** there will be a stack check soon after the push. Function frames
+** never use this extra space, so it does not need to be kept clean.
+*/
+constexpr int EXTRA_STACK = 5;
+
+
+constexpr int BASIC_STACK_SIZE = 2 * LUA_MINSTACK;
+
+inline int stacksize(lua_State *th) { return th->stack_last - th->stack; }
 
 /*
 ** Union of all collectable objects (only for conversions)
@@ -330,29 +326,83 @@ union GCUnion {
 */
 #define cast_u(o)	cast(union GCUnion *, (o))
 
-/* macros to convert a GCObject into a specific value */
-#define gco2ts(o)  \
-	check_exp(novariant((o)->tt) == LUA_TSTRING, &((cast_u(o))->ts))
-#define gco2u(o)  check_exp((o)->tt == LUA_VUSERDATA, &((cast_u(o))->u))
-#define gco2lcl(o)  check_exp((o)->tt == LUA_VLCL, &((cast_u(o))->cl.l))
-#define gco2ccl(o)  check_exp((o)->tt == LUA_VCCL, &((cast_u(o))->cl.c))
-#define gco2cl(o)  \
-	check_exp(novariant((o)->tt) == LUA_TFUNCTION, &((cast_u(o))->cl))
-#define gco2t(o)  check_exp((o)->tt == LUA_VTABLE, &((cast_u(o))->h))
-#define gco2p(o)  check_exp((o)->tt == LUA_VPROTO, &((cast_u(o))->p))
-#define gco2th(o)  check_exp((o)->tt == LUA_VTHREAD, &((cast_u(o))->th))
-#define gco2upv(o)	check_exp((o)->tt == LUA_VUPVAL, &((cast_u(o))->upv))
+/* Functions to convert a GCObject into a specific value */
+inline TString *gco2ts(GCObject *o) {
+  return check_exp(novariant(o->tt) == LUA_TSTRING, &(cast_u(o))->ts);
+}
 
+inline Udata *gco2u(GCObject *o) {
+  return check_exp(o->tt == LUA_VUSERDATA, &(cast_u(o))->u);
+}
+
+inline LClosure *gco2lcl(GCObject *o) {
+  return check_exp(o->tt == LUA_VLCL, &(cast_u(o))->cl.l);
+}
+
+inline CClosure *gco2ccl(GCObject *o) {
+  return check_exp(o->tt == LUA_VCCL, &(cast_u(o))->cl.c);
+}
+
+inline Closure *gco2cl(GCObject *o) {
+  return check_exp(novariant(o->tt) == LUA_TFUNCTION, &(cast_u(o))->cl);
+}
+
+inline Table *gco2t(GCObject *o) {
+  return check_exp(o->tt == LUA_VTABLE, &(cast_u(o))->h);
+}
+
+inline Proto *gco2p(GCObject *o) {
+  return check_exp(o->tt == LUA_VPROTO, &(cast_u(o))->p);
+}
+
+inline lua_State *gco2th(GCObject *o) {
+  return check_exp(o->tt == LUA_VTHREAD, &(cast_u(o))->th);
+}
+
+inline UpVal *gco2upv(GCObject *o) {
+  return check_exp(o->tt == LUA_VUPVAL, &(cast_u(o))->upv);
+}
 
 /*
-** macro to convert a Lua object into a GCObject
+** Functions to convert a Lua object into a GCObject
 ** (The access to 'tt' tries to ensure that 'v' is actually a Lua object.)
 */
-#define obj2gco(v)	check_exp((v)->tt >= LUA_TSTRING, &(cast_u(v)->gc))
+inline GCObject *obj2gco(Table *v) {
+  return check_exp(v->tt >= LUA_TSTRING, &(cast_u(v))->gc);
+}
 
+inline GCObject *obj2gco(CClosure *v) {
+  return check_exp(v->tt >= LUA_TSTRING, &(cast_u(v))->gc);
+}
+
+inline GCObject *obj2gco(LClosure *v) {
+  return check_exp(v->tt >= LUA_TSTRING, &(cast_u(v))->gc);
+}
+
+inline GCObject *obj2gco(TString *v) {
+  return check_exp(v->tt >= LUA_TSTRING, &(cast_u(v))->gc);
+}
+
+inline GCObject *obj2gco(GCObject *v) {
+  return check_exp(v->tt >= LUA_TSTRING, &(cast_u(v))->gc);
+}
+
+inline GCObject *obj2gco(const GCObject *v) {
+  return check_exp(v->tt >= LUA_TSTRING, &(cast_u(v))->gc);
+}
+
+inline GCObject *obj2gco(lua_State *v) {
+  return check_exp(v->tt >= LUA_TSTRING, &(cast_u(v))->gc);
+}
+
+inline GCObject *obj2gco(Udata *v) {
+  return check_exp(v->tt >= LUA_TSTRING, &(cast_u(v))->gc);
+}
 
 /* actual number of total bytes allocated */
-#define gettotalbytes(g)	cast(lu_mem, (g)->totalbytes + (g)->GCdebt)
+inline lu_mem gettotalbytes(global_State *g) {
+  return g->totalbytes + g->GCdebt;
+}
 
 LUAI_FUNC void luaE_setdebt (global_State *g, l_mem debt);
 LUAI_FUNC void luaE_freethread (lua_State *L, lua_State *L1);
