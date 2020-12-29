@@ -166,7 +166,7 @@ inline bool isLua(CallInfo *ci) { return !(ci->callstatus & CIST_C); }
 inline  bool isLuacode(CallInfo *ci) { return !(ci->callstatus & (CIST_C | CIST_HOOKED)); }
 
 /* assume that CIST_OAH has offset 0 and that 'v' is strictly 0/1 */
-inline void setoah(unsigned short st, lu_byte v) { st = (st & ~CIST_OAH) | v; }
+inline void setoah(unsigned short &st, lu_byte v) { st = (st & ~CIST_OAH) | v; }
 inline unsigned short getoah(unsigned short st) { return st & CIST_OAH; }
 
 
