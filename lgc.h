@@ -71,15 +71,15 @@ inline bool keepinvariant(global_State *g) { return g->gcstate <= GCSatomic; }
 ** Layout for bit use in 'marked' field. First three bits are used
 ** for object "age" in generational mode. Last bit is used by tests.
 */
-constexpr int WHITE0BIT    = 3;  /* object is white (type 0) */
-constexpr int WHITE1BIT    = 4;  /* object is white (type 1) */
-constexpr int BLACKBIT     = 5;  /* object is black */
-constexpr int FINALIZEDBIT = 6;  /* object has been marked for finalization */
+constexpr lu_byte WHITE0BIT    = 3;  /* object is white (type 0) */
+constexpr lu_byte WHITE1BIT    = 4;  /* object is white (type 1) */
+constexpr lu_byte BLACKBIT     = 5;  /* object is black */
+constexpr lu_byte FINALIZEDBIT = 6;  /* object has been marked for finalization */
 
-constexpr int TESTBIT      = 7;
+constexpr lu_byte TESTBIT      = 7;
 
 
-constexpr unsigned int WHITEBITS = bit2mask(WHITE0BIT, WHITE1BIT);
+constexpr lu_byte WHITEBITS = bit2mask(WHITE0BIT, WHITE1BIT);
 
 
 inline bool iswhite(const GCObject *x) { return testbits(x->marked, WHITEBITS); }
@@ -88,8 +88,8 @@ inline bool isgray(const GCObject *x) { return !(testbits(x->marked, WHITEBITS |
 
 inline bool tofinalize(const GCObject *x) { return testbit(x->marked, FINALIZEDBIT); }
 
-inline unsigned int otherwhite(const global_State *g) { return g->currentwhite ^ WHITEBITS; }
-inline bool isdeadm(unsigned int ow, unsigned int m) { return m & ow; }
+inline lu_byte otherwhite(const global_State *g) { return g->currentwhite ^ WHITEBITS; }
+inline bool isdeadm(lu_byte ow, lu_byte m) { return m & ow; }
 inline bool isdead(const global_State *g, const GCObject *v) {
   return isdeadm(otherwhite(g), v->marked);
 }
@@ -101,25 +101,25 @@ inline void changewhite(GCObject *x) { x->marked ^= WHITEBITS; }
 inline lu_byte luaC_white(const global_State *g) { return g->currentwhite & WHITEBITS; }
 
 /* object age in generational mode */
-constexpr int G_NEW      = 0;  /* created in current cycle */
-constexpr int G_SURVIVAL = 1;  /* created in previous cycle */
-constexpr int G_OLD0     = 2;  /* marked old by frw. barrier in this cycle */
-constexpr int G_OLD1     = 3;  /* first full cycle as old */
-constexpr int G_OLD      = 4;  /* really old object (not to be visited) */
-constexpr int G_TOUCHED1 = 5;  /* old object touched this cycle */
-constexpr int G_TOUCHED2 = 6;  /* old object touched in previous cycle */
+constexpr lu_byte G_NEW      = 0;  /* created in current cycle */
+constexpr lu_byte G_SURVIVAL = 1;  /* created in previous cycle */
+constexpr lu_byte G_OLD0     = 2;  /* marked old by frw. barrier in this cycle */
+constexpr lu_byte G_OLD1     = 3;  /* first full cycle as old */
+constexpr lu_byte G_OLD      = 4;  /* really old object (not to be visited) */
+constexpr lu_byte G_TOUCHED1 = 5;  /* old object touched this cycle */
+constexpr lu_byte G_TOUCHED2 = 6;  /* old object touched in previous cycle */
 
-constexpr int AGEBITS = 7;  /* all age bits (111) */
+constexpr lu_byte AGEBITS = 7;  /* all age bits (111) */
 
-inline unsigned int getage(GCObject *o) { return o->marked & AGEBITS; }
+inline lu_byte getage(GCObject *o) { return o->marked & AGEBITS; }
 
-inline void setage(GCObject *o, unsigned int a) {
+inline void setage(GCObject *o, lu_byte a) {
   o->marked = cast_byte((o->marked & (~AGEBITS)) | a);
 }
 
 inline bool isold(GCObject *o) { return getage(o) > G_SURVIVAL; }
 
-inline void changeage(GCObject *o, unsigned int f, unsigned int t) {
+inline void changeage(GCObject *o, lu_byte f, lu_byte t) {
   check_exp(getage(o) == f, o->marked ^= f ^ t);
 }
 

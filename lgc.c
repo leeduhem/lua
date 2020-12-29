@@ -61,10 +61,10 @@ constexpr int PAUSEADJ = 100;
 
 
 /* mask with all color bits */
-constexpr unsigned int maskcolors = bitmask(BLACKBIT) | WHITEBITS;
+constexpr lu_byte maskcolors = bitmask(BLACKBIT) | WHITEBITS;
 
 /* mask with all GC bits */
-constexpr unsigned int maskgcbits = maskcolors | AGEBITS;
+constexpr lu_byte maskgcbits = maskcolors | AGEBITS;
 
 
 /* macro to erase all color bits then set only the current white bit */
