@@ -94,8 +94,7 @@ static const Node dummynode_ = {
 };
 
 
-static const TValue absentkey = {ABSTKEYCONSTANT};
-
+static const TValue absentkey = ABSTKEYCONSTANT;
 
 
 /*

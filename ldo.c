@@ -35,7 +35,7 @@
 
 
 
-#define errorstatus(s)	((s) > LUA_YIELD)
+static inline bool errorstatus(int s) { return s > LUA_YIELD; }
 
 
 /*

@@ -28,6 +28,7 @@
 #include "lstring.h"
 #include "lvm.h"
 
+TValue ABSTKEYCONSTANT = { nullptr, LUA_VABSTKEY };
 
 /*
 ** Computes ceil(log2(x))
