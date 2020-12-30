@@ -32,82 +32,95 @@
 ** (Large enough to dissipate fixed overheads but small enough
 ** to allow small steps for the collector.)
 */
-#define GCSWEEPMAX	100
+constexpr int GCSWEEPMAX = 100;
 
 /*
 ** Maximum number of finalizers to call in each single step.
 */
-#define GCFINMAX	10
+constexpr int GCFINMAX = 10;
 
 
 /*
 ** Cost of calling one finalizer.
 */
-#define GCFINALIZECOST	50
+constexpr int GCFINALIZECOST = 50;
 
 
 /*
 ** The equivalent, in bytes, of one unit of "work" (visiting a slot,
 ** sweeping an object, etc.)
 */
-#define WORK2MEM	sizeof(TValue)
+constexpr size_t WORK2MEM = sizeof(TValue);
 
 
 /*
 ** macro to adjust 'pause': 'pause' is actually used like
 ** 'pause / PAUSEADJ' (value chosen by tests)
 */
-#define PAUSEADJ		100
+constexpr int PAUSEADJ = 100;
 
 
 /* mask with all color bits */
-#define maskcolors	(bitmask(BLACKBIT) | WHITEBITS)
+constexpr unsigned int maskcolors = bitmask(BLACKBIT) | WHITEBITS;
 
 /* mask with all GC bits */
-#define maskgcbits      (maskcolors | AGEBITS)
+constexpr unsigned int maskgcbits = maskcolors | AGEBITS;
 
 
 /* macro to erase all color bits then set only the current white bit */
-#define makewhite(g,x)	\
-  (x->marked = cast_byte((x->marked & ~maskcolors) | luaC_white(g)))
+inline void makewhite(global_State *g, GCObject *x) {
+  x->marked = cast_byte((x->marked & ~maskcolors) | luaC_white(g));
+}
 
 /* make an object gray (neither white nor black) */
-#define set2gray(x)	resetbits(x->marked, maskcolors)
-
+inline void set2gray(GCObject *x) {
+  resetbits(x->marked, maskcolors);
+}
 
 /* make an object black (coming from any color) */
-#define set2black(x)  \
-  (x->marked = cast_byte((x->marked & ~WHITEBITS) | bitmask(BLACKBIT)))
+inline void set2black(GCObject *x) {
+  x->marked = cast_byte((x->marked & ~WHITEBITS) | bitmask(BLACKBIT));
+}
 
+inline bool valiswhite(const TValue *x) {
+  return iscollectable(x) && iswhite(gcvalue(x));
+}
 
-#define valiswhite(x)   (iscollectable(x) && iswhite(gcvalue(x)))
-
-#define keyiswhite(n)   (keyiscollectable(n) && iswhite(gckey(n)))
-
-
-/*
-** Protected access to objects in values
-*/
-#define gcvalueN(o)     (iscollectable(o) ? gcvalue(o) : NULL)
-
-
-#define markvalue(g,o) { checkliveness(g->mainthread,o); \
-  if (valiswhite(o)) reallymarkobject(g,gcvalue(o)); }
-
-#define markkey(g, n)	{ if keyiswhite(n) reallymarkobject(g,gckey(n)); }
-
-#define markobject(g,t)	{ if (iswhite(t)) reallymarkobject(g, obj2gco(t)); }
-
-/*
-** mark an object that can be NULL (either because it is really optional,
-** or it was stripped as debug info, or inside an uncompleted structure)
-*/
-#define markobjectN(g,t)	{ if (t) markobject(g,t); }
+inline bool keyiswhite(const Node *n) {
+  return keyiscollectable(n) && iswhite(gckey(n));
+}
 
 static void reallymarkobject (global_State *g, GCObject *o);
 static lu_mem atomic (lua_State *L);
 static void entersweep (lua_State *L);
 
+
+/*
+** Protected access to objects in values
+*/
+inline GCObject *gcvalueN(const TValue *o) {
+  return iscollectable(o) ? gcvalue(o) : nullptr;
+}
+
+inline void markvalue(global_State *g, TValue *o) {
+  if (valiswhite(o)) reallymarkobject(g, gcvalue(o));
+}
+
+inline void markkey(global_State *g, Node *n) {
+  if (keyiswhite(n)) reallymarkobject(g, gckey(n));
+}
+
+inline void markobject(global_State *g, GCObject *t) {
+  if (iswhite(t)) reallymarkobject(g, obj2gco(t));
+}
+
+/*
+** mark an object that can be NULL (either because it is really optional,
+** or it was stripped as debug info, or inside an uncompleted structure)
+*/
+inline void markobjectN(global_State *g, GCObject *t) {
+  if (t) markobject(g, t);
+}
 
 /*
 ** {======================================================
@@ -119,8 +132,7 @@ static void entersweep (lua_State *L);
 /*
 ** one after last element in a hash array
 */
-#define gnodelast(h)	gnode(h, cast_sizet(sizenode(h)))
-
+inline Node *gnodelast(Table *h) { return gnode(h, cast_sizet(sizenode(h))); }
 
 static GCObject **getgclist (GCObject *o) {
   switch (o->tt) {
@@ -139,12 +151,6 @@ static GCObject **getgclist (GCObject *o) {
 }
 
 
-/*
-** Link a collectable object 'o' with a known type into the list 'p'.
-** (Must be a macro to access the 'gclist' field in different types.)
-*/
-#define linkgclist(o,p)	linkgclist_(obj2gco(o), &(o)->gclist, &(p))
-
 static void linkgclist_ (GCObject *o, GCObject **pnext, GCObject **list) {
   lua_assert(!isgray(o));  /* cannot be in a gray list */
   *pnext = *list;
@@ -152,12 +158,16 @@ static void linkgclist_ (GCObject *o, GCObject **pnext, GCObject **list) {
   set2gray(o);  /* now it is */
 }
 
+/*
+** Link a collectable object 'o' with a known type into the list 'p'.
+** (Must be a macro to access the 'gclist' field in different types.)
+*/
+#define linkgclist(o,p)	linkgclist_(obj2gco(o), &(o)->gclist, &(p))
 
 /*
 ** Link a generic collectable object 'o' into the list 'p'.
 */
 #define linkobjgclist(o,p) linkgclist_(obj2gco(o), getgclist(o), &(p))
-
 
 
 /*
@@ -182,7 +192,7 @@ static void clearkey (Node *n) {
 ** other objects: if really collected, cannot keep them; for objects
 ** being finalized, keep them in keys, but not in values
 */
-static int iscleared (global_State *g, const GCObject *o) {
+static int iscleared (global_State *g, GCObject *o) {
   if (o == NULL) return 0;  /* non-collectable value */
   else if (novariant(o->tt) == LUA_TSTRING) {
     markobject(g, o);  /* strings are 'values', so are never weak */

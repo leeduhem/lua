@@ -483,7 +483,7 @@ static void checkrefs (global_State *g, GCObject *o) {
 ** threads, and open upvalues.
 */
 static void checkobject (global_State *g, GCObject *o, int maybedead,
-                         int listage) {
+                         unsigned int listage) {
   if (isdead(g, o))
     lua_assert(maybedead);
   else {

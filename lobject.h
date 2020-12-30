@@ -743,10 +743,10 @@ inline TString *keystrval(const Node *node) { return gco2ts(keyval(node).gc); }
 
 inline void setnilkey(Node *node) { keytt(node) = LUA_TNIL; }
 
-inline bool keyiscollectable(Node *node) { return keytt(node) & BIT_ISCOLLECTABLE; }
+inline bool keyiscollectable(const Node *node) { return keytt(node) & BIT_ISCOLLECTABLE; }
 
-inline GCObject *gckey(Node *node) { return keyval(node).gc; }
-inline GCObject *gckeyN(Node *node) { return keyiscollectable(node) ? gckey(node) : nullptr; }
+inline GCObject *gckey(const Node *node) { return keyval(node).gc; }
+inline GCObject *gckeyN(const Node *node) { return keyiscollectable(node) ? gckey(node) : nullptr; }
 
 /*
 ** Dead keys in tables have the tag DEADKEY but keep their original
