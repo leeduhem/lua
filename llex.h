@@ -86,7 +86,7 @@ struct LexState {
   const char *token2str (int token);
 
  private:
-  void next() { current = zgetc(z); }
+  void next() { current = z->getc(); }
   bool current_is_newline() { return current == '\n' || current == '\r'; }
   void save_and_next() { save(current); next(); }
 

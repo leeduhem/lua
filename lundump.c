@@ -50,7 +50,7 @@ static l_noret error (LoadState *S, const char *why) {
 #define loadVector(S,b,n)	loadBlock(S,b,(n)*sizeof((b)[0]))
 
 static void loadBlock (LoadState *S, void *b, size_t size) {
-  if (luaZ_read(S->Z, b, size) != 0)
+  if (S->Z->read(b, size) != 0)
     error(S, "truncated chunk");
 }
 
@@ -59,7 +59,7 @@ static void loadBlock (LoadState *S, void *b, size_t size) {
 
 
 static lu_byte loadByte (LoadState *S) {
-  int b = zgetc(S->Z);
+  int b = S->Z->getc();
   if (b == EOZ)
     error(S, "truncated chunk");
   return cast_byte(b);
