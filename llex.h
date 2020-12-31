@@ -17,8 +17,7 @@
 ** Single-char tokens (terminal symbols) are represented by their own
 ** numeric code. Other tokens start at the following value.
 */
-#define FIRST_RESERVED	(UCHAR_MAX + 1)
-
+constexpr int FIRST_RESERVED = UCHAR_MAX + 1;
 
 #if !defined(LUA_ENV)
 #define LUA_ENV		"_ENV"
@@ -43,20 +42,20 @@ enum RESERVED {
 };
 
 /* number of reserved words */
-#define NUM_RESERVED	(cast_int(TK_WHILE-FIRST_RESERVED + 1))
+constexpr int NUM_RESERVED = cast_int(TK_WHILE-FIRST_RESERVED + 1);
 
 
-typedef union {
+union SemInfo {
   lua_Number r;
   lua_Integer i;
   TString *ts;
-} SemInfo;  /* semantics information */
+};  /* semantics information */
 
 
-typedef struct Token {
+struct Token {
   int token;
   SemInfo seminfo;
-} Token;
+};
 
 
 /* state of the lexer plus state of the parser when shared by all

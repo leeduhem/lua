@@ -9,51 +9,38 @@
 #define lzio_h
 
 #include "lua.h"
-
 #include "lmem.h"
 
+#include <vector>
 
-#define EOZ	(-1)			/* end of stream */
+constexpr int EOZ = -1;  // end of stream
 
 typedef struct Zio ZIO;
 
 struct Mbuffer {
-  char *buffer;
-  size_t n;
-  size_t buffsize;
+  std::vector<char, lua::lua_allocator<char>> buffer;
 
-  void init_buffer(lua_State *) {
-    buffer = nullptr;
-    buffsize = 0;
+  Mbuffer(lua_State *L) :
+    buffer(std::vector<char, lua::lua_allocator<char>>(lua::lua_allocator<char>(L))) {}
+
+  const char *get_buffer() const { return buffer.data(); }
+  size_t buffer_size() const { return buffer.size(); }
+  void push_back(const char c) { buffer.push_back(c); }
+  void reset_buffer() { buffer.clear(); }
+
+  void buff_remove(size_t n) {
+    lua_assert(n <= buffer.size());
+    buffer.resize(buffer.size() - n);
   }
 
-  char *get_buffer()  { return buffer; }
-  size_t buffer_size() { return buffsize; }
-  size_t &buff_len() { return n; }
-  void reset_buffer() { n = 0; }
-  void buff_remove(size_t i) { n -= i; }
-
-  void resize_buffer(lua_State *L, size_t size) {
-    buffer = luaM_reallocvchar(L, buffer, buffsize, size);
-    buffsize = size;
-  }
-
-  void free_buffer(lua_State *L) { resize_buffer(L, 0); }
+  void free_buffer() { buffer.clear(); }
 };
 
-inline void luaZ_initbuffer(lua_State *L, Mbuffer *buff) {
-  buff->init_buffer(L);
-}
-
-inline char *luaZ_buffer(Mbuffer *buff) { return buff->get_buffer(); }
-inline size_t luaZ_sizebuffer(Mbuffer *buff) { return buff->buffer_size(); }
-inline size_t &luaZ_bufflen(Mbuffer *buff) { return buff->buff_len(); }
-
-inline void luaZ_buffremove(Mbuffer *buff, size_t i) { buff->buff_remove(i); }
+inline const char *luaZ_buffer(Mbuffer *buff) { return buff->get_buffer(); }
+inline size_t luaZ_bufflen(Mbuffer *buff) { return buff->buffer_size(); }
 inline void luaZ_resetbuffer(Mbuffer *buff) { buff->reset_buffer(); }
-
-inline void luaZ_resizebuffer(lua_State *L, Mbuffer *buff, size_t size) { buff->resize_buffer(L, size); }
-inline void luaZ_freebuffer(lua_State *L, Mbuffer *buff) { buff->resize_buffer(L, 0); }
+inline void luaZ_buffremove(Mbuffer *buff, size_t i) { buff->buff_remove(i); }
+inline void luaZ_freebuffer(lua_State *, Mbuffer *buff) { buff->free_buffer(); }
 
 
 /* --------- Private Part ------------------ */

@@ -50,14 +50,7 @@ void luaX_init (lua_State *L) {
 
 
 void LexState::save (int c) {
-  Mbuffer *b = buff;
-  if (luaZ_bufflen(b) + 1 > luaZ_sizebuffer(b)) {
-    if (luaZ_sizebuffer(b) >= MAX_SIZE/2)
-      lexerror("lexical element too long", 0);
-    size_t newsize = luaZ_sizebuffer(b) * 2;
-    luaZ_resizebuffer(L, b, newsize);
-  }
-  b->buffer[luaZ_bufflen(b)++] = cast_char(c);
+  buff->push_back(c);
 }
 
 
@@ -137,8 +130,7 @@ void LexState::increment_line_number () {
 }
 
 
-void LexState::set_input (lua_State *L1, ZIO *z1, TString *source1,
-			 int firstchar) {
+void LexState::set_input (lua_State *L1, ZIO *z1, TString *source1, int firstchar) {
   t.token = 0;
   L = L1;
   current = firstchar;
@@ -149,7 +141,6 @@ void LexState::set_input (lua_State *L1, ZIO *z1, TString *source1,
   lastline = 1;
   source = source1;
   envn = luaS_newliteral(L, LUA_ENV);  /* get env name */
-  luaZ_resizebuffer(L, buff, LUA_MINBUFFER);  /* initialize buffer */
 }
 
 
