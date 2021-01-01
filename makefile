@@ -15,6 +15,7 @@ CWARNSCPP= \
 	-Wdisabled-optimization \
 	-Wdouble-promotion \
 	-Wlogical-op \
+	-Wno-invalid-offsetof \
 	-Wno-aggressive-loop-optimizations \
         # the next warnings might be useful sometimes,
 	# but usually they generate too much noise
