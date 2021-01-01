@@ -100,7 +100,7 @@ namespace lua
       typedef size_t size_type;
       typedef T *pointer;
 
-      template<class U>
+      template<typename U>
 	struct rebind
 	{
 	  typedef lua_allocator<U> other;

@@ -367,35 +367,8 @@ inline UpVal *gco2upv(GCObject *o) {
 ** Functions to convert a Lua object into a GCObject
 ** (The access to 'tt' tries to ensure that 'v' is actually a Lua object.)
 */
-inline GCObject *obj2gco(Table *v) {
-  return check_exp(v->tt >= LUA_TSTRING, &(cast_u(v))->gc);
-}
-
-inline GCObject *obj2gco(CClosure *v) {
-  return check_exp(v->tt >= LUA_TSTRING, &(cast_u(v))->gc);
-}
-
-inline GCObject *obj2gco(LClosure *v) {
-  return check_exp(v->tt >= LUA_TSTRING, &(cast_u(v))->gc);
-}
-
-inline GCObject *obj2gco(TString *v) {
-  return check_exp(v->tt >= LUA_TSTRING, &(cast_u(v))->gc);
-}
-
-inline GCObject *obj2gco(GCObject *v) {
-  return check_exp(v->tt >= LUA_TSTRING, &(cast_u(v))->gc);
-}
-
-inline GCObject *obj2gco(const GCObject *v) {
-  return check_exp(v->tt >= LUA_TSTRING, &(cast_u(v))->gc);
-}
-
-inline GCObject *obj2gco(lua_State *v) {
-  return check_exp(v->tt >= LUA_TSTRING, &(cast_u(v))->gc);
-}
-
-inline GCObject *obj2gco(Udata *v) {
+template<typename T>
+inline GCObject *obj2gco(const T *v) {
   return check_exp(v->tt >= LUA_TSTRING, &(cast_u(v))->gc);
 }
 
@@ -403,6 +376,70 @@ inline GCObject *obj2gco(Udata *v) {
 inline lu_mem gettotalbytes(global_State *g) {
   return g->totalbytes + g->GCdebt;
 }
+
+// Threads
+inline void setthvalue(lua_State *L, TValue *obj, lua_State *x) {
+  val_(obj).gc = obj2gco(x); settt_(obj, ctb(LUA_VTHREAD));
+  checkliveness(L, obj);
+}
+
+inline void setthvalue2s(lua_State *L, StkId o, lua_State *t) {
+  setthvalue(L, s2v(o), t);
+}
+
+// TStrings
+inline void setsvalue(lua_State *L, TValue *obj, TString *x) {
+  val_(obj).gc = obj2gco(x); settt_(obj, ctb(x->tt));
+  checkliveness(L, obj);
+}
+
+/* set a string to the stack */
+inline void setsvalue2s(lua_State *L, StkId o, TString *s) {
+  setsvalue(L, s2v(o), s);
+}
+
+/* set a string to a new object */
+inline void setsvalue2n(lua_State *L, TValue *obj, TString *x) {
+  setsvalue(L, obj, x);
+}
+
+// Udata
+inline void setpvalue(TValue *o, void *x) {
+  val_(o).p = x; settt_(o, LUA_VLIGHTUSERDATA);
+}
+
+inline void setuvalue(lua_State *L, TValue *obj, Udata *x) {
+  val_(obj).gc = obj2gco(x); settt_(obj, ctb(LUA_VUSERDATA));
+  checkliveness(L, obj);
+}
+
+// Closure
+inline void setclLvalue(lua_State *L, TValue *obj, LClosure *x) {
+  val_(obj).gc = obj2gco(x); settt_(obj, ctb(LUA_VLCL));
+  checkliveness(L, obj);
+}
+
+inline void setclLvalue2s(lua_State *L, StkId o, LClosure *cl) {
+  setclLvalue(L, s2v(o), cl);
+}
+
+inline void setfvalue(TValue *o, lua_CFunction x) {
+  val_(o).f = x; settt_(o, LUA_VLCF);
+}
+
+inline void setclCvalue(lua_State *L, TValue *obj, CClosure *x) {
+  val_(obj).gc = obj2gco(x); settt_(obj, ctb(LUA_VCCL));
+  checkliveness(L, obj);
+}
+
+// Table
+inline void sethvalue(lua_State *L, TValue *obj, Table *x) {
+  val_(obj).gc = obj2gco(x); settt_(obj, ctb(LUA_VTABLE));
+  checkliveness(L, obj);
+}
+
+inline void sethvalue2s(lua_State *L, StkId o, Table *h) { sethvalue(L, s2v(o), h); }
+
 
 LUAI_FUNC void luaE_setdebt (global_State *g, l_mem debt);
 LUAI_FUNC void luaE_freethread (lua_State *L, lua_State *L1);

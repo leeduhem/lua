@@ -54,7 +54,7 @@
 #define LUA_ERRERR	5
 
 
-typedef struct lua_State lua_State;
+struct lua_State;
 
 
 /*
