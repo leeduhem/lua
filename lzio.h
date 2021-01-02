@@ -32,15 +32,7 @@ struct Mbuffer {
     lua_assert(n <= buffer.size());
     buffer.resize(buffer.size() - n);
   }
-
-  void free_buffer() { buffer.clear(); }
 };
-
-inline const char *luaZ_buffer(Mbuffer *buff) { return buff->get_buffer(); }
-inline size_t luaZ_bufflen(Mbuffer *buff) { return buff->buffer_size(); }
-inline void luaZ_resetbuffer(Mbuffer *buff) { buff->reset_buffer(); }
-inline void luaZ_buffremove(Mbuffer *buff, size_t i) { buff->buff_remove(i); }
-inline void luaZ_freebuffer(lua_State *, Mbuffer *buff) { buff->free_buffer(); }
 
 
 /* --------- Private Part ------------------ */
