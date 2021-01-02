@@ -76,7 +76,7 @@ const char *LexState::txtToken (int token) {
     case TK_NAME: case TK_STRING:
     case TK_FLT: case TK_INT:
       save('\0');
-      return luaO_pushfstring(L, "'%s'", buff->get_buffer());
+      return luaO_pushfstring(L, "'%s'", buff->data());
     default:
       return token2str(token);
   }
@@ -206,7 +206,7 @@ int LexState::read_numeral (SemInfo *seminfo) {
   if (lislalpha(current))  /* is numeral touching a letter? */
     save_and_next();  /* force an error */
   save('\0');
-  if (luaO_str2num(buff->get_buffer(), &obj) == 0)  /* format error? */
+  if (luaO_str2num(buff->data(), &obj) == 0)  /* format error? */
     lexerror("malformed number", TK_FLT);
   if (ttisinteger(&obj)) {
     seminfo->i = ivalue(&obj);
@@ -265,7 +265,7 @@ void LexState::read_long_string (SemInfo *seminfo, size_t sep) {
       case '\n': case '\r': {
         save('\n');
 	increment_line_number();
-        if (!seminfo) buff->reset_buffer();  /* avoid wasting space */
+        if (!seminfo) buff->clear();  /* avoid wasting space */
         break;
       }
       default: {
@@ -275,7 +275,7 @@ void LexState::read_long_string (SemInfo *seminfo, size_t sep) {
     }
   } endloop:
   if (seminfo)
-    seminfo->ts = new_string(buff->get_buffer() + sep, buff->buffer_size() - 2 * sep);
+    seminfo->ts = new_string(buff->data() + sep, buff->size() - 2 * sep);
 }
 
 void LexState::escape_check(int c, const char *msg) {
@@ -297,7 +297,7 @@ int LexState::gethexa () {
 int LexState::readhexaesc () {
   int r = gethexa();
   r = (r << 4) + gethexa();
-  buff->buff_remove(2);  /* remove saved chars from buffer */
+  buff->remove(2);  /* remove saved chars from buffer */
   return r;
 }
 
@@ -314,7 +314,7 @@ unsigned long LexState::readutf8esc () {
   }
   escape_check(current == '}', "missing '}'");
   next();  /* skip '}' */
-  buff->buff_remove(i);  /* remove saved chars from buffer */
+  buff->remove(i);  /* remove saved chars from buffer */
   return r;
 }
 
@@ -334,7 +334,7 @@ int LexState::readdecesc () {
     save_and_next();
   }
   escape_check(r <= UCHAR_MAX, "decimal escape too large");
-  buff->buff_remove(i);  /* remove read digits from buffer */
+  buff->remove(i);  /* remove read digits from buffer */
   return r;
 }
 
@@ -369,7 +369,7 @@ void LexState::read_string (int del, SemInfo *seminfo) {
             c = current; goto read_save;
           case EOZ: goto no_save;  /* will raise an error next loop */
           case 'z': {  /* zap following span of spaces */
-            buff->buff_remove(1);  /* remove '\\' */
+            buff->remove(1);  /* remove '\\' */
             next();  /* skip the 'z' */
             while (lisspace(current)) {
               if (current_is_newline()) increment_line_number();
@@ -387,7 +387,7 @@ void LexState::read_string (int del, SemInfo *seminfo) {
 	next();
 	/* go through */
 	only_save:
-	buff->buff_remove(1);  /* remove '\\' */
+	buff->remove(1);  /* remove '\\' */
 	save(c);
 	/* go through */
 	no_save: break;
@@ -397,12 +397,12 @@ void LexState::read_string (int del, SemInfo *seminfo) {
     }
   }
   save_and_next();  /* skip delimiter */
-  seminfo->ts = new_string(buff->get_buffer() + 1, buff->buffer_size() - 2);
+  seminfo->ts = new_string(buff->data() + 1, buff->size() - 2);
 }
 
 
 int LexState::llex (SemInfo *seminfo) {
-  buff->reset_buffer();
+  buff->clear();
   for (;;) {
     switch (current) {
       case '\n': case '\r': {  /* line breaks */
@@ -420,10 +420,10 @@ int LexState::llex (SemInfo *seminfo) {
         next();
         if (current == '[') {  /* long comment? */
           size_t sep = skip_sep();
-          buff->reset_buffer();  /* 'skip_sep' may dirty the buffer */
+          buff->clear();  /* 'skip_sep' may dirty the buffer */
           if (sep >= 2) {
             read_long_string(NULL, sep);  /* skip long comment */
-            buff->reset_buffer();  /* previous call may dirty the buff. */
+            buff->clear();  /* previous call may dirty the buff. */
             break;
           }
         }
@@ -501,7 +501,7 @@ int LexState::llex (SemInfo *seminfo) {
           do {
             save_and_next();
           } while (lislalnum(current));
-          ts = new_string(buff->get_buffer(), buff->buffer_size());
+          ts = new_string(buff->data(), buff->size());
           seminfo->ts = ts;
           if (isreserved(ts))  /* reserved word? */
             return ts->extra - 1 + FIRST_RESERVED;

@@ -23,12 +23,12 @@ struct Mbuffer {
   Mbuffer(lua_State *L) :
     buffer(std::vector<char, lua::lua_allocator<char>>(lua::lua_allocator<char>(L))) {}
 
-  const char *get_buffer() const { return buffer.data(); }
-  size_t buffer_size() const { return buffer.size(); }
+  const char *data() const { return buffer.data(); }
+  size_t size() const { return buffer.size(); }
   void push_back(const char c) { buffer.push_back(c); }
-  void reset_buffer() { buffer.clear(); }
+  void clear() { buffer.clear(); }
 
-  void buff_remove(size_t n) {
+  void remove(size_t n) {
     lua_assert(n <= buffer.size());
     buffer.resize(buffer.size() - n);
   }
