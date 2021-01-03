@@ -297,7 +297,7 @@ int LexState::gethexa () {
 int LexState::readhexaesc () {
   int r = gethexa();
   r = (r << 4) + gethexa();
-  buff->remove(2);  /* remove saved chars from buffer */
+  buff->resize(buff->size() - 2); // remove saved chars from buffer
   return r;
 }
 
@@ -314,7 +314,7 @@ unsigned long LexState::readutf8esc () {
   }
   escape_check(current == '}', "missing '}'");
   next();  /* skip '}' */
-  buff->remove(i);  /* remove saved chars from buffer */
+  buff->resize(buff->size() - i);  // remove saved chars from buffer
   return r;
 }
 
@@ -334,7 +334,7 @@ int LexState::readdecesc () {
     save_and_next();
   }
   escape_check(r <= UCHAR_MAX, "decimal escape too large");
-  buff->remove(i);  /* remove read digits from buffer */
+  buff->resize(buff->size() - i);  // remove read digits from buffer
   return r;
 }
 
@@ -369,7 +369,7 @@ void LexState::read_string (int del, SemInfo *seminfo) {
             c = current; goto read_save;
           case EOZ: goto no_save;  /* will raise an error next loop */
           case 'z': {  /* zap following span of spaces */
-            buff->remove(1);  /* remove '\\' */
+	    buff->pop_back();  // remove '\\'
             next();  /* skip the 'z' */
             while (lisspace(current)) {
               if (current_is_newline()) increment_line_number();
@@ -387,7 +387,7 @@ void LexState::read_string (int del, SemInfo *seminfo) {
 	next();
 	/* go through */
 	only_save:
-	buff->remove(1);  /* remove '\\' */
+	buff->pop_back();  // remove '\\'
 	save(c);
 	/* go through */
 	no_save: break;
