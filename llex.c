@@ -48,6 +48,11 @@ void luaX_init (lua_State *L) {
   }
 }
 
+inline void LexState::next() { current = z->getc(); }
+
+inline bool LexState::current_is_newline() { return current == '\n' || current == '\r'; }
+
+inline void LexState::save_and_next() { save(current); next(); }
 
 void LexState::save (int c) {
   buff->push_back(c);
