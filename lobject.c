@@ -408,19 +408,11 @@ const char *luaO_pushvfstring (lua_State *L, const char *fmt, va_list argp) {
       break;
     }
     case 'd': {  // an 'int'
-      TValue num;
-      char b[MAXNUMBER2STR];
-      setivalue(&num, va_arg(argp, int));
-      int len = tostringbuff(&num, b);
-      buff.write(b, len);
+      buff << va_arg(argp, int);
       break;
     }
     case 'I': {  // a 'lua_Integer'
-      TValue num;
-      char b[MAXNUMBER2STR];
-      setivalue(&num, cast(lua_Integer, va_arg(argp, l_uacInt)));
-      int len = tostringbuff(&num, b);
-      buff.write(b, len);
+      buff << cast(lua_Integer, va_arg(argp, l_uacInt));
       break;
     }
     case 'f': {  // a 'lua_Number'
