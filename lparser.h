@@ -23,7 +23,7 @@
 */
 
 /* kinds of variables/expressions */
-typedef enum {
+enum expkind {
   VVOID,  /* when 'expdesc' describes the last expression of a list,
              this kind means an empty list (so, no expression) */
   VNIL,  /* constant nil */
@@ -59,14 +59,14 @@ typedef enum {
               info = instruction pc */
   VCALL,  /* expression is a function call; info = instruction pc */
   VVARARG  /* vararg expression; info = instruction pc */
-} expkind;
+};
 
 
 inline bool vkisvar(expkind k)     { return (VLOCAL <= k && k <= VINDEXSTR); }
 inline bool vkisindexed(expkind k) { return (VINDEXED <= k && k <= VINDEXSTR); }
 
 
-typedef struct expdesc {
+struct expdesc {
   expkind k;
   union {
     lua_Integer ival;    /* for VKINT */
@@ -84,14 +84,14 @@ typedef struct expdesc {
   } u;
   int t;  /* patch list of 'exit when true' */
   int f;  /* patch list of 'exit when false' */
-} expdesc;
+};
 
 
 /* kinds of variables */
-#define VDKREG		0   /* regular */
-#define RDKCONST	1   /* constant */
-#define RDKTOCLOSE	2   /* to-be-closed */
-#define RDKCTC		3   /* compile-time constant */
+constexpr lu_byte VDKREG     = 0;   /* regular */
+constexpr lu_byte RDKCONST   = 1;   /* constant */
+constexpr lu_byte RDKTOCLOSE = 2;   /* to-be-closed */
+constexpr lu_byte RDKCTC     = 3;   /* compile-time constant */
 
 /* description of an active local variable */
 union Vardesc {
@@ -122,15 +122,15 @@ struct Labeldesc {
 
 
 /* list of labels or gotos */
-typedef struct Labellist {
+struct Labellist {
   Labeldesc *arr;  /* array */
   int n;  /* number of entries in use */
   int size;  /* array size */
-} Labellist;
+};
 
 
 /* dynamic structures used by the parser */
-typedef struct Dyndata {
+struct Dyndata {
   struct {  /* list of all active local variables */
     Vardesc *arr;
     int n;
@@ -138,7 +138,7 @@ typedef struct Dyndata {
   } actvar;
   Labellist gt;  /* list of pending gotos */
   Labellist label;   /* list of active labels */
-} Dyndata;
+};
 
 
 /* control of blocks */

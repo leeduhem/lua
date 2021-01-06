@@ -19,13 +19,16 @@
 #include "lundump.h"
 
 
-typedef struct {
+struct DumpState {
   lua_State *L;
   lua_Writer writer;
   void *data;
   int strip;
   int status;
-} DumpState;
+
+  DumpState(lua_State *L1, lua_Writer writer1, void *data1, int strip1, int status1 = 0) :
+    L(L1), writer(writer1), data(data1), strip(strip1), status(status1) {}
+};
 
 
 /*
@@ -56,7 +59,7 @@ static void dumpByte (DumpState *D, int y) {
 
 
 /* dumpInt Buff Size */
-#define DIBS    ((sizeof(size_t) * 8 / 7) + 1)
+constexpr size_t DIBS = (sizeof(size_t) * 8 / 7) + 1;
 
 static void dumpSize (DumpState *D, size_t x) {
   lu_byte buff[DIBS];
@@ -86,7 +89,7 @@ static void dumpInteger (DumpState *D, lua_Integer x) {
 
 
 static void dumpString (DumpState *D, const TString *s) {
-  if (s == NULL)
+  if (s == nullptr)
     dumpSize(D, 0);
   else {
     size_t size = tsslen(s);
@@ -106,10 +109,9 @@ static void dumpCode (DumpState *D, const Proto *f) {
 static void dumpFunction(DumpState *D, const Proto *f, TString *psource);
 
 static void dumpConstants (DumpState *D, const Proto *f) {
-  int i;
   int n = f->sizek;
   dumpInt(D, n);
-  for (i = 0; i < n; i++) {
+  for (int i = 0; i < n; i++) {
     const TValue *o = &f->k[i];
     int tt = ttypetag(o);
     dumpByte(D, tt);
@@ -132,18 +134,17 @@ static void dumpConstants (DumpState *D, const Proto *f) {
 
 
 static void dumpProtos (DumpState *D, const Proto *f) {
-  int i;
   int n = f->sizep;
   dumpInt(D, n);
-  for (i = 0; i < n; i++)
+  for (int i = 0; i < n; i++)
     dumpFunction(D, f->p[i], f->source);
 }
 
 
 static void dumpUpvalues (DumpState *D, const Proto *f) {
-  int i, n = f->sizeupvalues;
+  int n = f->sizeupvalues;
   dumpInt(D, n);
-  for (i = 0; i < n; i++) {
+  for (int i = 0; i < n; i++) {
     dumpByte(D, f->upvalues[i].instack);
     dumpByte(D, f->upvalues[i].idx);
     dumpByte(D, f->upvalues[i].kind);
@@ -152,33 +153,35 @@ static void dumpUpvalues (DumpState *D, const Proto *f) {
 
 
 static void dumpDebug (DumpState *D, const Proto *f) {
-  int i, n;
-  n = (D->strip) ? 0 : f->sizelineinfo;
+  int n = (D->strip) ? 0 : f->sizelineinfo;
   dumpInt(D, n);
   dumpVector(D, f->lineinfo, n);
+
   n = (D->strip) ? 0 : f->sizeabslineinfo;
   dumpInt(D, n);
-  for (i = 0; i < n; i++) {
+  for (int i = 0; i < n; i++) {
     dumpInt(D, f->abslineinfo[i].pc);
     dumpInt(D, f->abslineinfo[i].line);
   }
+
   n = (D->strip) ? 0 : f->sizelocvars;
   dumpInt(D, n);
-  for (i = 0; i < n; i++) {
+  for (int i = 0; i < n; i++) {
     dumpString(D, f->locvars[i].varname);
     dumpInt(D, f->locvars[i].startpc);
     dumpInt(D, f->locvars[i].endpc);
   }
+
   n = (D->strip) ? 0 : f->sizeupvalues;
   dumpInt(D, n);
-  for (i = 0; i < n; i++)
+  for (int i = 0; i < n; i++)
     dumpString(D, f->upvalues[i].name);
 }
 
 
 static void dumpFunction (DumpState *D, const Proto *f, TString *psource) {
   if (D->strip || f->source == psource)
-    dumpString(D, NULL);  /* no debug info or same source as its parent */
+    dumpString(D, nullptr);  /* no debug info or same source as its parent */
   else
     dumpString(D, f->source);
   dumpInt(D, f->linedefined);
@@ -210,17 +213,11 @@ static void dumpHeader (DumpState *D) {
 /*
 ** dump Lua function as precompiled chunk
 */
-int luaU_dump(lua_State *L, const Proto *f, lua_Writer w, void *data,
-              int strip) {
-  DumpState D;
-  D.L = L;
-  D.writer = w;
-  D.data = data;
-  D.strip = strip;
-  D.status = 0;
+int luaU_dump(lua_State *L, const Proto *f, lua_Writer w, void *data, int strip) {
+  DumpState D(L, w, data, strip);
   dumpHeader(&D);
   dumpByte(&D, f->sizeupvalues);
-  dumpFunction(&D, f, NULL);
+  dumpFunction(&D, f, nullptr);
   return D.status;
 }
 

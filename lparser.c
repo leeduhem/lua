@@ -42,8 +42,7 @@ inline bool hasmultret(expkind k) { return (k == VCALL || k == VVARARG); }
 
 /* because all strings are unified by the scanner, the parser
    can use pointer equality for string equality */
-#define eqstr(a,b)	((a) == (b))
-
+inline bool eqstr(TString *a, TString *b) { return a == b; }
 
 /*
 ** nodes for block list (list of active blocks)
@@ -78,7 +77,7 @@ static l_noret errorlimit (FuncState *fs, int limit, const char *what) {
                       ? "main function"
                       : luaO_pushfstring(L, "function at line %d", line);
   const char *msg = luaO_pushfstring(L, "too many %s (limit is %d) in %s",
-                             what, limit, where);
+				     what, limit, where);
   fs->ls->syntax_error(msg);
 }
 
@@ -127,14 +126,15 @@ inline void check_condition(LexState *ls, bool c, const char *msg) {
 ** in line 'where' (if that is not the current line).
 */
 static void check_match (LexState *ls, int what, int who, int where) {
-  if (unlikely(!testnext(ls, what))) {
-    if (where == ls->linenumber)  /* all in the same line? */
-      error_expected(ls, what);  /* do not need a complex message */
-    else {
-      ls->syntax_error(luaO_pushfstring(ls->L,
-             "%s expected (to close %s at line %d)",
-              ls->token2str(what), ls->token2str(who), where));
-    }
+  if (likely(testnext(ls, what)))
+    return;
+
+  if (where == ls->linenumber)  /* all in the same line? */
+    error_expected(ls, what);  /* do not need a complex message */
+  else {
+    ls->syntax_error(luaO_pushfstring(ls->L,
+				      "%s expected (to close %s at line %d)",
+				      ls->token2str(what), ls->token2str(who), where));
   }
 }
 
@@ -190,8 +190,7 @@ static int new_localvar (LexState *ls, TString *name) {
   lua_State *L = ls->L;
   FuncState *fs = ls->fs;
   Dyndata *dyd = ls->dyd;
-  checklimit(fs, dyd->actvar.n + 1 - fs->firstlocal,
-                 MAXVARS, "local variables");
+  checklimit(fs, dyd->actvar.n + 1 - fs->firstlocal, MAXVARS, "local variables");
   luaM_growvector(L, dyd->actvar.arr, dyd->actvar.n,
                   dyd->actvar.size, Vardesc, USHRT_MAX, "local variables");
   Vardesc *var = new (&dyd->actvar.arr[dyd->actvar.n++]) Vardesc();

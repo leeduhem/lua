@@ -30,11 +30,14 @@
 #endif
 
 
-typedef struct {
+struct LoadState {
   lua_State *L;
   ZIO *Z;
   const char *name;
-} LoadState;
+
+  LoadState(lua_State *L1, ZIO *Z1, const char *name1) :
+    L(L1), Z(Z1), name(name1) {}
+};
 
 
 static l_noret error (LoadState *S, const char *why) {
@@ -108,12 +111,13 @@ static lua_Integer loadInteger (LoadState *S) {
 ** Load a nullable string into prototype 'p'.
 */
 static TString *loadStringN (LoadState *S, Proto *p) {
-  lua_State *L = S->L;
-  TString *ts;
   size_t size = loadSize(S);
   if (size == 0)  /* no string? */
-    return NULL;
-  else if (--size <= LUAI_MAXSHORTLEN) {  /* short string? */
+    return nullptr;
+
+  lua_State *L = S->L;
+  TString *ts;
+  if (--size <= LUAI_MAXSHORTLEN) {  /* short string? */
     char buff[LUAI_MAXSHORTLEN];
     loadVector(S, buff, size);  /* load string into buffer */
     ts = luaS_newlstr(L, buff, size);  /* create string */
@@ -135,7 +139,7 @@ static TString *loadStringN (LoadState *S, Proto *p) {
 */
 static TString *loadString (LoadState *S, Proto *p) {
   TString *st = loadStringN(S, p);
-  if (st == NULL)
+  if (st == nullptr)
     error(S, "bad format for constant string");
   return st;
 }
@@ -153,13 +157,12 @@ static void loadFunction(LoadState *S, Proto *f, TString *psource);
 
 
 static void loadConstants (LoadState *S, Proto *f) {
-  int i;
   int n = loadInt(S);
   f->k = luaM_newvectorchecked(S->L, n, TValue);
   f->sizek = n;
-  for (i = 0; i < n; i++)
+  for (int i = 0; i < n; i++)
     setnilvalue(&f->k[i]);
-  for (i = 0; i < n; i++) {
+  for (int i = 0; i < n; i++) {
     TValue *o = &f->k[i];
     int t = loadByte(S);
     switch (t) {
@@ -189,13 +192,12 @@ static void loadConstants (LoadState *S, Proto *f) {
 
 
 static void loadProtos (LoadState *S, Proto *f) {
-  int i;
   int n = loadInt(S);
   f->p = luaM_newvectorchecked(S->L, n, Proto *);
   f->sizep = n;
-  for (i = 0; i < n; i++)
-    f->p[i] = NULL;
-  for (i = 0; i < n; i++) {
+  for (int i = 0; i < n; i++)
+    f->p[i] = nullptr;
+  for (int i = 0; i < n; i++) {
     f->p[i] = luaF_newproto(S->L);
     luaC_objbarrier(S->L, f, f->p[i]);
     loadFunction(S, f->p[i], f->source);
@@ -210,13 +212,12 @@ static void loadProtos (LoadState *S, Proto *f) {
 ** in that case all prototypes must be consistent for the GC.
 */
 static void loadUpvalues (LoadState *S, Proto *f) {
-  int i, n;
-  n = loadInt(S);
+  int n = loadInt(S);
   f->upvalues = luaM_newvectorchecked(S->L, n, Upvaldesc);
   f->sizeupvalues = n;
-  for (i = 0; i < n; i++)  /* make array valid for GC */
-    f->upvalues[i].name = NULL;
-  for (i = 0; i < n; i++) {  /* following calls can raise errors */
+  for (int i = 0; i < n; i++)  /* make array valid for GC */
+    f->upvalues[i].name = nullptr;
+  for (int i = 0; i < n; i++) {  /* following calls can raise errors */
     f->upvalues[i].instack = loadByte(S);
     f->upvalues[i].idx = loadByte(S);
     f->upvalues[i].kind = loadByte(S);
@@ -225,37 +226,39 @@ static void loadUpvalues (LoadState *S, Proto *f) {
 
 
 static void loadDebug (LoadState *S, Proto *f) {
-  int i, n;
-  n = loadInt(S);
+  int n = loadInt(S);
   f->lineinfo = luaM_newvectorchecked(S->L, n, ls_byte);
   f->sizelineinfo = n;
   loadVector(S, f->lineinfo, n);
+
   n = loadInt(S);
   f->abslineinfo = luaM_newvectorchecked(S->L, n, AbsLineInfo);
   f->sizeabslineinfo = n;
-  for (i = 0; i < n; i++) {
+  for (int i = 0; i < n; i++) {
     f->abslineinfo[i].pc = loadInt(S);
     f->abslineinfo[i].line = loadInt(S);
   }
+
   n = loadInt(S);
   f->locvars = luaM_newvectorchecked(S->L, n, LocVar);
   f->sizelocvars = n;
-  for (i = 0; i < n; i++)
-    f->locvars[i].varname = NULL;
-  for (i = 0; i < n; i++) {
+  for (int i = 0; i < n; i++)
+    f->locvars[i].varname = nullptr;
+  for (int i = 0; i < n; i++) {
     f->locvars[i].varname = loadStringN(S, f);
     f->locvars[i].startpc = loadInt(S);
     f->locvars[i].endpc = loadInt(S);
   }
+
   n = loadInt(S);
-  for (i = 0; i < n; i++)
+  for (int i = 0; i < n; i++)
     f->upvalues[i].name = loadStringN(S, f);
 }
 
 
 static void loadFunction (LoadState *S, Proto *f, TString *psource) {
   f->source = loadStringN(S, f);
-  if (f->source == NULL)  /* no source in dump? */
+  if (f->source == nullptr)  /* no source in dump? */
     f->source = psource;  /* reuse parent's source */
   f->linedefined = loadInt(S);
   f->lastlinedefined = loadInt(S);
@@ -309,23 +312,19 @@ static void checkHeader (LoadState *S) {
 ** Load precompiled chunk.
 */
 LClosure *luaU_undump(lua_State *L, ZIO *Z, const char *name) {
-  LoadState S;
-  LClosure *cl;
   if (*name == '@' || *name == '=')
-    S.name = name + 1;
+    name = name + 1;
   else if (*name == LUA_SIGNATURE[0])
-    S.name = "binary string";
-  else
-    S.name = name;
-  S.L = L;
-  S.Z = Z;
+    name = "binary string";
+
+  LoadState S(L, Z, name);
   checkHeader(&S);
-  cl = luaF_newLclosure(L, loadByte(&S));
+  LClosure *cl = luaF_newLclosure(L, loadByte(&S));
   setclLvalue2s(L, L->top, cl);
   luaD_inctop(L);
   cl->p = luaF_newproto(L);
   luaC_objbarrier(L, cl, cl->p);
-  loadFunction(&S, cl->p, NULL);
+  loadFunction(&S, cl->p, nullptr);
   lua_assert(cl->nupvalues == cl->p->sizeupvalues);
   luai_verifycode(L, cl->p);
   return cl;
