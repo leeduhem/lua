@@ -162,13 +162,12 @@ int LexState::check_next1 (int c) {
     next();
     return 1;
   }
-  else return 0;
+  return 0;
 }
 
 
 /*
-** Check whether current char is in set 'set' (with two chars) and
-** saves it
+** Check whether current char is in set 'set' (with two chars) and saves it
 */
 int LexState::check_next2 (const char *set) {
   lua_assert(set[2] == '\0');
@@ -176,7 +175,7 @@ int LexState::check_next2 (const char *set) {
     save_and_next();
     return 1;
   }
-  else return 0;
+  return 0;
 }
 
 
@@ -278,7 +277,8 @@ void LexState::read_long_string (SemInfo *seminfo, size_t sep) {
         else next();
       }
     }
-  } endloop:
+  }
+ endloop:
   if (seminfo)
     seminfo->ts = new_string(buff->data() + sep, buff->size() - 2 * sep);
 }
@@ -443,41 +443,41 @@ int LexState::llex (SemInfo *seminfo) {
           read_long_string(seminfo, sep);
           return TK_STRING;
         }
-        else if (sep == 0)  /* '[=...' missing second bracket? */
+        if (sep == 0)  /* '[=...' missing second bracket? */
           lexerror("invalid long string delimiter", TK_STRING);
         return '[';
       }
       case '=': {
         next();
         if (check_next1('=')) return TK_EQ;  /* '==' */
-        else return '=';
+        return '=';
       }
       case '<': {
         next();
         if (check_next1('=')) return TK_LE;  /* '<=' */
-        else if (check_next1('<')) return TK_SHL;  /* '<<' */
-        else return '<';
+	if (check_next1('<')) return TK_SHL;  /* '<<' */
+	return '<';
       }
       case '>': {
         next();
         if (check_next1('=')) return TK_GE;  /* '>=' */
-        else if (check_next1('>')) return TK_SHR;  /* '>>' */
-        else return '>';
+	if (check_next1('>')) return TK_SHR;  /* '>>' */
+	return '>';
       }
       case '/': {
         next();
         if (check_next1('/')) return TK_IDIV;  /* '//' */
-        else return '/';
+	return '/';
       }
       case '~': {
         next();
         if (check_next1('=')) return TK_NE;  /* '~=' */
-        else return '~';
+	return '~';
       }
       case ':': {
         next();
         if (check_next1(':')) return TK_DBCOLON;  /* '::' */
-        else return ':';
+	return ':';
       }
       case '"': case '\'': {  /* short literal strings */
         read_string(current, seminfo);
@@ -486,12 +486,11 @@ int LexState::llex (SemInfo *seminfo) {
       case '.': {  /* '.', '..', '...', or number */
         save_and_next();
         if (check_next1('.')) {
-          if (check_next1('.'))
-            return TK_DOTS;   /* '...' */
-          else return TK_CONCAT;   /* '..' */
+          if (check_next1('.')) return TK_DOTS;   /* '...' */
+	  return TK_CONCAT;   /* '..' */
         }
-        else if (!lisdigit(current)) return '.';
-        else return read_numeral(seminfo);
+        if (!lisdigit(current)) return '.';
+	return read_numeral(seminfo);
       }
       case '0': case '1': case '2': case '3': case '4':
       case '5': case '6': case '7': case '8': case '9': {
@@ -502,23 +501,20 @@ int LexState::llex (SemInfo *seminfo) {
       }
       default: {
         if (lislalpha(current)) {  /* identifier or reserved word? */
-          TString *ts;
           do {
             save_and_next();
           } while (lislalnum(current));
-          ts = new_string(buff->data(), buff->size());
+          TString *ts = new_string(buff->data(), buff->size());
           seminfo->ts = ts;
           if (isreserved(ts))  /* reserved word? */
             return ts->extra - 1 + FIRST_RESERVED;
-          else {
-            return TK_NAME;
-          }
+	  return TK_NAME;
         }
-        else {  /* single-char tokens ('+', '*', '%', '{', '}', ...) */
-          int c = current;
-          next();
-          return c;
-        }
+
+	/* single-char tokens ('+', '*', '%', '{', '}', ...) */
+	int c = current;
+	next();
+	return c;
       }
     }
   }
