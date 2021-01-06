@@ -262,6 +262,7 @@ static void close_state (lua_State *L) {
     luai_userstateclose(L);
   luaM_freearray(L, G(L)->strt.hash, G(L)->strt.size);
   freestack(L);
+  cast(LG *, fromstate(L))->~LG();
   lua_assert(gettotalbytes(g) == sizeof(LG));
   (*g->frealloc)(g->ud, fromstate(L), sizeof(LG), 0);  /* free main block */
 }
@@ -304,6 +305,7 @@ void luaE_freethread (lua_State *L, lua_State *L1) {
   lua_assert(L1->openupval == NULL);
   luai_userstatefree(L, L1);
   freestack(L1);
+  l->~LX();
   luaM_free(L, l);
 }
 

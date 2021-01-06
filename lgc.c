@@ -764,33 +764,43 @@ static void freeobj (lua_State *L, GCObject *o) {
       break;
     case LUA_VLCL: {
       LClosure *cl = gco2lcl(o);
+      cl->~LClosure();
       luaM_freemem(L, cl, sizeLclosure(cl->nupvalues));
       break;
     }
     case LUA_VCCL: {
       CClosure *cl = gco2ccl(o);
+      cl->~CClosure();
       luaM_freemem(L, cl, sizeCclosure(cl->nupvalues));
       break;
     }
-    case LUA_VTABLE:
-      luaH_free(L, gco2t(o));
+    case LUA_VTABLE: {
+      Table *t = gco2t(o);
+      t->~Table();
+      luaH_free(L, t);
       break;
+    }
     case LUA_VTHREAD:
       luaE_freethread(L, gco2th(o));
       break;
     case LUA_VUSERDATA: {
       Udata *u = gco2u(o);
-      luaM_freemem(L, o, sizeudata(u->nuvalue, u->len));
+      unsigned short nuvalue = u->nuvalue;
+      size_t len = u->len;
+      u->~Udata();
+      luaM_freemem(L, o, sizeudata(nuvalue, len));
       break;
     }
     case LUA_VSHRSTR: {
       TString *ts = gco2ts(o);
       luaS_remove(L, ts);  /* remove it from hash table */
+      ts->~TString();
       luaM_freemem(L, ts, sizelstring(ts->shrlen));
       break;
     }
     case LUA_VLNGSTR: {
       TString *ts = gco2ts(o);
+      ts->~TString();
       luaM_freemem(L, ts, sizelstring(ts->u.lnglen));
       break;
     }
