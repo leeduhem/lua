@@ -150,7 +150,7 @@ struct FuncState {
   Proto *f = nullptr;  /* current function header */
   struct FuncState *prev = nullptr;  /* enclosing function */
   struct LexState *ls = nullptr;  /* lexical state */
-  std::vector<BlockCnt *, lua::lua_allocator<BlockCnt *>> blocks; // chain of current blocks
+  std::vector<BlockCnt *, lua::allocator<BlockCnt *>> blocks; // chain of current blocks
   int pc = 0;  /* next position to code (equivalent to 'ncode') */
   int lasttarget = 0;   /* 'label' of last 'jump label' */
   int previousline = 0;  /* last line that was saved in 'lineinfo' */
@@ -167,7 +167,7 @@ struct FuncState {
   lu_byte needclose = 0;  /* function needs to close upvalues when returning */
 
   FuncState(lua_State *L) :
-    blocks(std::vector<BlockCnt *, lua::lua_allocator<BlockCnt *>>(lua::lua_allocator<BlockCnt *>(L))) {}
+    blocks(std::vector<BlockCnt *, lua::allocator<BlockCnt *>>(lua::allocator<BlockCnt *>(L))) {}
 };
 
 
