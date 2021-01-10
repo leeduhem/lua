@@ -516,14 +516,14 @@ struct Proto : public GCObject {
   TValue *k = nullptr;  /* constants used by the function */
   Instruction *code = nullptr;  /* opcodes */
   Proto **p = nullptr;  /* functions defined inside the function */
-  std::vector<Upvaldesc> upvalues;  // upvalue information
+  std::vector<Upvaldesc, lua::allocator<Upvaldesc>> upvalues;  // upvalue information
   ls_byte *lineinfo = nullptr;  /* information about source lines (debug information) */
   AbsLineInfo *abslineinfo = nullptr;  /* idem */
   std::vector<LocVar> locvars;  // information about local variables (debug information)
   TString  *source = nullptr;  /* used for debug information */
   GCObject *gclist = nullptr;
 
- Proto(lua_State *L, lu_byte tag) : GCObject(G(L), tag) {}
+ Proto(lua_State *L, lu_byte tag) : GCObject(G(L), tag), upvalues(lua::allocator<Upvaldesc>(L)) {}
 };
 
 /* }================================================================== */
