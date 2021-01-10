@@ -153,9 +153,9 @@ static void dumpUpvalues (DumpState *D, const Proto *f) {
 
 
 static void dumpDebug (DumpState *D, const Proto *f) {
-  int n = (D->strip) ? 0 : f->sizelineinfo;
+  int n = (D->strip) ? 0 : f->lineinfo.size();
   dumpInt(D, n);
-  dumpVector(D, f->lineinfo, n);
+  dumpVector(D, f->lineinfo.data(), n);
 
   n = (D->strip) ? 0 : f->sizeabslineinfo;
   dumpInt(D, n);

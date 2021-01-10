@@ -648,7 +648,7 @@ static char *buildop (Proto *p, int pc, char *buff) {
   OpCode o = GET_OPCODE(i);
   const char *name = opnames[o];
   int line = luaG_getfuncline(p, pc);
-  int lineinfo = (p->lineinfo != NULL) ? p->lineinfo[pc] : 0;
+  int lineinfo = (!p->lineinfo.empty()) ? p->lineinfo[pc] : 0;
   if (lineinfo == ABSLINEINFO)
     buff += sprintf(buff, "(__");
   else

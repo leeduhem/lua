@@ -85,17 +85,16 @@ static int getbaseline (const Proto *f, int pc, int *basepc) {
 ** the desired instruction.
 */
 int luaG_getfuncline (const Proto *f, int pc) {
-  if (f->lineinfo == NULL)  /* no debug information? */
+  if (f->lineinfo.empty())  /* no debug information? */
     return -1;
-  else {
-    int basepc;
-    int baseline = getbaseline(f, pc, &basepc);
-    while (basepc++ < pc) {  /* walk until given instruction */
-      lua_assert(f->lineinfo[basepc] != ABSLINEINFO);
-      baseline += f->lineinfo[basepc];  /* correct line */
-    }
-    return baseline;
+
+  int basepc;
+  int baseline = getbaseline(f, pc, &basepc);
+  while (basepc++ < pc) {  /* walk until given instruction */
+    lua_assert(f->lineinfo[basepc] != ABSLINEINFO);
+    baseline += f->lineinfo[basepc];  /* correct line */
   }
+  return baseline;
 }
 
 
@@ -297,7 +296,6 @@ static void collectvalidlines (lua_State *L, Closure *f) {
     api_incr_top(L);
   }
   else {
-    int i;
     TValue v;
     const Proto *p = f->l.p;
     int currentline = p->linedefined;
@@ -305,7 +303,7 @@ static void collectvalidlines (lua_State *L, Closure *f) {
     sethvalue2s(L, L->top, t);  /* push it on stack */
     api_incr_top(L);
     setbtvalue(&v);  /* boolean 'true' to be the value of all indices */
-    for (i = 0; i < p->sizelineinfo; i++) {  /* for all lines with code */
+    for (size_t i = 0; i < p->lineinfo.size(); i++) {  /* for all lines with code */
       currentline = nextline(p, currentline, i);
       luaH_setint(L, t, currentline, &v);  /* table[line] = true */
     }
@@ -783,7 +781,7 @@ l_noret luaG_runerror (lua_State *L, const char *fmt, ...) {
 ** previous instruction 'oldpc'.
 */
 static int changedline (const Proto *p, int oldpc, int newpc) {
-  if (p->lineinfo == NULL)  /* no debug information? */
+  if (p->lineinfo.empty())  /* no debug information? */
     return 0;
   while (oldpc++ < newpc) {
     if (p->lineinfo[oldpc] != 0)

@@ -508,7 +508,6 @@ struct Proto : public GCObject {
   lu_byte maxstacksize = 0;  /* number of registers needed by this function */
   int sizek = 0;  /* size of 'k' */
   int sizecode = 0;
-  int sizelineinfo = 0;
   int sizep = 0;  /* size of 'p' */
   int sizeabslineinfo = 0;  /* size of 'abslineinfo' */
   int linedefined = 0;  /* debug information  */
@@ -517,7 +516,7 @@ struct Proto : public GCObject {
   Instruction *code = nullptr;  /* opcodes */
   Proto **p = nullptr;  /* functions defined inside the function */
   std::vector<Upvaldesc, lua::allocator<Upvaldesc>> upvalues;  // upvalue information
-  ls_byte *lineinfo = nullptr;  /* information about source lines (debug information) */
+  std::vector<ls_byte> lineinfo;  // information about source lines (debug information)
   AbsLineInfo *abslineinfo = nullptr;  /* idem */
   std::vector<LocVar> locvars;  // information about local variables (debug information)
   TString  *source = nullptr;  /* used for debug information */

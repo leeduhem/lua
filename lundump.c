@@ -224,9 +224,8 @@ static void loadUpvalues (LoadState *S, Proto *f) {
 
 static void loadDebug (LoadState *S, Proto *f) {
   int n = loadInt(S);
-  f->lineinfo = luaM_newvectorchecked(S->L, n, ls_byte);
-  f->sizelineinfo = n;
-  loadVector(S, f->lineinfo, n);
+  f->lineinfo.resize(n);
+  loadVector(S, f->lineinfo.data(), n);
 
   n = loadInt(S);
   f->abslineinfo = luaM_newvectorchecked(S->L, n, AbsLineInfo);
