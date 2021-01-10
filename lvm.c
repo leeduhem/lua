@@ -784,8 +784,8 @@ lua_Integer luaV_shiftl (lua_Integer x, lua_Integer y) {
 */
 static void pushclosure (lua_State *L, Proto *p, UpVal **encup, StkId base,
                          StkId ra) {
-  int nup = p->sizeupvalues;
-  Upvaldesc *uv = p->upvalues;
+  int nup = p->upvalues.size();
+  auto &uv = p->upvalues;
   int i;
   LClosure *ncl = luaF_newLclosure(L, nup);
   ncl->p = p;

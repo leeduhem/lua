@@ -373,8 +373,8 @@ static void checkproto (global_State *g, Proto *f) {
     if (ttisstring(f->k + i))
       checkobjref(g, fgc, tsvalue(f->k + i));
   }
-  for (int i=0; i<f->sizeupvalues; i++)
-    checkobjref(g, fgc, f->upvalues[i].name);
+  for (auto &v : f->upvalues)
+    checkobjref(g, fgc, v.name);
   for (int i=0; i<f->sizep; i++)
     checkobjref(g, fgc, f->p[i]);
   for (auto &v : f->locvars)

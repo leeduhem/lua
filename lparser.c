@@ -324,44 +324,28 @@ static void removevars (FuncState *fs, int tolevel) {
 ** Search the upvalues of the function 'fs' for one with the given 'name'.
 */
 static int searchupvalue (FuncState *fs, TString *name) {
-  Upvaldesc *up = fs->f->upvalues;
+  auto &up = fs->f->upvalues;
   for (int i = 0; i < fs->nups; i++) {
     if (eqstr(up[i].name, name)) return i;
   }
   return -1;  /* not found */
 }
 
-
-static Upvaldesc *allocupvalue (FuncState *fs) {
-  Proto *f = fs->f;
-  int oldsize = f->sizeupvalues;
-  checklimit(fs, fs->nups + 1, MAXUPVAL, "upvalues");
-  luaM_growvector(fs->ls->L, f->upvalues, fs->nups, f->sizeupvalues,
-                  Upvaldesc, MAXUPVAL, "upvalues");
-  while (oldsize < f->sizeupvalues)
-    f->upvalues[oldsize++].name = nullptr;
-  return &f->upvalues[fs->nups++];
-}
-
-
 static int newupvalue (FuncState *fs, TString *name, expdesc *v) {
-  Upvaldesc *up = new (allocupvalue(fs)) Upvaldesc();
+  checklimit(fs, fs->nups + 1, MAXUPVAL, "upvalues");
+
+  Proto *f = fs->f;
   FuncState *prev = fs->prev;
   if (v->k == VLOCAL) {
-    up->instack = 1;
-    up->idx = v->u.var.sidx;
-    up->kind = getlocalvardesc(prev, v->u.var.vidx)->vd.kind;
+    f->upvalues.emplace_back(name, 1, v->u.var.sidx, getlocalvardesc(prev, v->u.var.vidx)->vd.kind);
     lua_assert(eqstr(name, getlocalvardesc(prev, v->u.var.vidx)->vd.name));
   }
   else {
-    up->instack = 0;
-    up->idx = cast_byte(v->u.info);
-    up->kind = prev->f->upvalues[v->u.info].kind;
+    f->upvalues.emplace_back(name, 0, cast_byte(v->u.info), prev->f->upvalues[v->u.info].kind);
     lua_assert(eqstr(name, prev->f->upvalues[v->u.info].name));
   }
-  up->name = name;
   luaC_objbarrier(fs->ls->L, fs->f, name);
-  return fs->nups - 1;
+  return fs->nups++;
 }
 
 
@@ -718,8 +702,6 @@ static void close_func (LexState *ls) {
                        fs->nabslineinfo, AbsLineInfo);
   luaM_shrinkvector(L, f->k, f->sizek, fs->nk, TValue);
   luaM_shrinkvector(L, f->p, f->sizep, fs->np, Proto *);
-  lua_assert(f->locvars.size() == cast_sizet(fs->ndebugvars));
-  luaM_shrinkvector(L, f->upvalues, f->sizeupvalues, fs->nups, Upvaldesc);
   ls->fs = fs->prev;
   luaC_checkGC(L);
 }
@@ -1865,15 +1847,12 @@ static void statement (LexState *ls) {
 */
 static void mainfunc (LexState *ls, FuncState *fs) {
   BlockCnt bl;
-  Upvaldesc *env;
+  Proto *f = fs->f;
   open_func(ls, fs, &bl);
   setvararg(fs, 0);  /* main function is always declared vararg */
-  env = allocupvalue(fs);  /* ...set environment upvalue */
-  env->instack = 1;
-  env->idx = 0;
-  env->kind = VDKREG;
-  env->name = ls->envn;
-  luaC_objbarrier(ls->L, fs->f, env->name);
+  f->upvalues.emplace_back(ls->envn, 1, 0, VDKREG);  // ...set environment upvalue
+  fs->nups++;
+  luaC_objbarrier(ls->L, fs->f, ls->envn);
   ls->next_token();  /* read first token */
   statlist(ls);  /* parse main body */
   check(ls, TK_EOS);

@@ -213,14 +213,11 @@ static void loadProtos (LoadState *S, Proto *f) {
 */
 static void loadUpvalues (LoadState *S, Proto *f) {
   int n = loadInt(S);
-  f->upvalues = luaM_newvectorchecked(S->L, n, Upvaldesc);
-  f->sizeupvalues = n;
-  for (int i = 0; i < n; i++)  /* make array valid for GC */
-    f->upvalues[i].name = nullptr;
-  for (int i = 0; i < n; i++) {  /* following calls can raise errors */
-    f->upvalues[i].instack = loadByte(S);
-    f->upvalues[i].idx = loadByte(S);
-    f->upvalues[i].kind = loadByte(S);
+  f->upvalues.resize(n);
+  for (auto &v : f->upvalues) {
+    v.instack = loadByte(S);
+    v.idx = loadByte(S);
+    v.kind = loadByte(S);
   }
 }
 
@@ -322,7 +319,7 @@ LClosure *luaU_undump(lua_State *L, ZIO *Z, const char *name) {
   cl->p = luaF_newproto(L);
   luaC_objbarrier(L, cl, cl->p);
   loadFunction(&S, cl->p, nullptr);
-  lua_assert(cl->nupvalues == cl->p->sizeupvalues);
+  lua_assert(cl->nupvalues == cl->p->upvalues.size());
   luai_verifycode(L, cl->p);
   return cl;
 }

@@ -142,12 +142,12 @@ static void dumpProtos (DumpState *D, const Proto *f) {
 
 
 static void dumpUpvalues (DumpState *D, const Proto *f) {
-  int n = f->sizeupvalues;
+  int n = f->upvalues.size();
   dumpInt(D, n);
-  for (int i = 0; i < n; i++) {
-    dumpByte(D, f->upvalues[i].instack);
-    dumpByte(D, f->upvalues[i].idx);
-    dumpByte(D, f->upvalues[i].kind);
+  for (auto &v : f->upvalues) {
+    dumpByte(D, v.instack);
+    dumpByte(D, v.idx);
+    dumpByte(D, v.kind);
   }
 }
 
@@ -172,7 +172,7 @@ static void dumpDebug (DumpState *D, const Proto *f) {
     dumpInt(D, f->locvars[i].endpc);
   }
 
-  n = (D->strip) ? 0 : f->sizeupvalues;
+  n = (D->strip) ? 0 : f->upvalues.size();
   dumpInt(D, n);
   for (int i = 0; i < n; i++)
     dumpString(D, f->upvalues[i].name);
@@ -216,7 +216,7 @@ static void dumpHeader (DumpState *D) {
 int luaU_dump(lua_State *L, const Proto *f, lua_Writer w, void *data, int strip) {
   DumpState D(L, w, data, strip);
   dumpHeader(&D);
-  dumpByte(&D, f->sizeupvalues);
+  dumpByte(&D, f->upvalues.size());
   dumpFunction(&D, f, nullptr);
   return D.status;
 }

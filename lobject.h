@@ -461,6 +461,10 @@ struct Upvaldesc {
   lu_byte instack;  /* whether it is in stack (register) */
   lu_byte idx;  /* index of upvalue (in stack or in outer function's list) */
   lu_byte kind;  /* kind of corresponding variable */
+
+  Upvaldesc() = default;
+  Upvaldesc(TString *name1, lu_byte instack1, lu_byte idx1, lu_byte kind1) :
+    name(name1), instack(instack1), idx(idx1), kind(kind1) {}
 };
 
 
@@ -502,7 +506,6 @@ struct Proto : public GCObject {
   lu_byte numparams = 0;  /* number of fixed (named) parameters */
   lu_byte is_vararg = 0;
   lu_byte maxstacksize = 0;  /* number of registers needed by this function */
-  int sizeupvalues = 0;  /* size of 'upvalues' */
   int sizek = 0;  /* size of 'k' */
   int sizecode = 0;
   int sizelineinfo = 0;
@@ -513,7 +516,7 @@ struct Proto : public GCObject {
   TValue *k = nullptr;  /* constants used by the function */
   Instruction *code = nullptr;  /* opcodes */
   Proto **p = nullptr;  /* functions defined inside the function */
-  Upvaldesc *upvalues = nullptr;  /* upvalue information */
+  std::vector<Upvaldesc> upvalues;  // upvalue information
   ls_byte *lineinfo = nullptr;  /* information about source lines (debug information) */
   AbsLineInfo *abslineinfo = nullptr;  /* idem */
   std::vector<LocVar> locvars;  // information about local variables (debug information)

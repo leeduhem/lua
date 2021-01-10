@@ -255,7 +255,6 @@ void luaF_freeproto (lua_State *L, Proto *f) {
   luaM_freearray(L, f->k, f->sizek);
   luaM_freearray(L, f->lineinfo, f->sizelineinfo);
   luaM_freearray(L, f->abslineinfo, f->sizeabslineinfo);
-  luaM_freearray(L, f->upvalues, f->sizeupvalues);
   f->~Proto();
   luaM_free(L, f);
 }
