@@ -341,7 +341,8 @@ static void savelineinfo (FuncState *fs, Proto *f, int line) {
     linedif = ABSLINEINFO;  /* signal that there is absolute information */
     fs->iwthabs = 0;  /* restart counter */
   }
-  f->lineinfo.resize(pc + 1);
+  if (f->lineinfo.empty() || (cast_sizet(pc) > f->lineinfo.size() - 1))
+    f->lineinfo.resize(pc + 1);
   f->lineinfo[pc] = linedif;
   fs->previousline = line;  /* last line saved */
 }
