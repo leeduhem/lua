@@ -240,10 +240,7 @@ static void loadDebug (LoadState *S, Proto *f) {
   }
 
   n = loadInt(S);
-  f->locvars = luaM_newvectorchecked(S->L, n, LocVar);
-  f->sizelocvars = n;
-  for (int i = 0; i < n; i++)
-    f->locvars[i].varname = nullptr;
+  f->locvars.resize(n);
   for (int i = 0; i < n; i++) {
     f->locvars[i].varname = loadStringN(S, f);
     f->locvars[i].startpc = loadInt(S);

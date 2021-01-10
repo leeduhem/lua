@@ -243,7 +243,7 @@ int luaF_close (lua_State *L, StkId level, int status) {
 
 
 Proto *luaF_newproto (lua_State *L) {
-  GCObject *o = new (luaC_newobj(L, LUA_VPROTO, sizeof(Proto))) Proto(G(L), LUA_VPROTO);
+  GCObject *o = new (luaC_newobj(L, LUA_VPROTO, sizeof(Proto))) Proto(L, LUA_VPROTO);
   Proto *f = gco2p(o);
   return f;
 }
@@ -255,8 +255,8 @@ void luaF_freeproto (lua_State *L, Proto *f) {
   luaM_freearray(L, f->k, f->sizek);
   luaM_freearray(L, f->lineinfo, f->sizelineinfo);
   luaM_freearray(L, f->abslineinfo, f->sizeabslineinfo);
-  luaM_freearray(L, f->locvars, f->sizelocvars);
   luaM_freearray(L, f->upvalues, f->sizeupvalues);
+  f->~Proto();
   luaM_free(L, f);
 }
 
@@ -266,13 +266,13 @@ void luaF_freeproto (lua_State *L, Proto *f) {
 ** Returns NULL if not found.
 */
 const char *luaF_getlocalname (const Proto *f, int local_number, int pc) {
-  for (int i = 0; i<f->sizelocvars && f->locvars[i].startpc <= pc; i++) {
-    if (pc < f->locvars[i].endpc) {  /* is variable active? */
-      local_number--;
-      if (local_number == 0)
-        return getstr(f->locvars[i].varname);
-    }
+  for (auto &v : f->locvars) {
+    if (v.startpc <= pc
+	&& pc < v.endpc // is variable active?
+	&& (--local_number == 0))
+      return getstr(v.varname);
   }
-  return NULL;  /* not found */
+
+  return nullptr;  // not found
 }
 

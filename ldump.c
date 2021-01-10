@@ -164,7 +164,7 @@ static void dumpDebug (DumpState *D, const Proto *f) {
     dumpInt(D, f->abslineinfo[i].line);
   }
 
-  n = (D->strip) ? 0 : f->sizelocvars;
+  n = (D->strip) ? 0 : f->locvars.size();
   dumpInt(D, n);
   for (int i = 0; i < n; i++) {
     dumpString(D, f->locvars[i].varname);

@@ -377,8 +377,8 @@ static void checkproto (global_State *g, Proto *f) {
     checkobjref(g, fgc, f->upvalues[i].name);
   for (int i=0; i<f->sizep; i++)
     checkobjref(g, fgc, f->p[i]);
-  for (int i=0; i<f->sizelocvars; i++)
-    checkobjref(g, fgc, f->locvars[i].varname);
+  for (auto &v : f->locvars)
+    checkobjref(g, fgc, v.varname);
 }
 
 

@@ -576,9 +576,9 @@ static int traverseproto (global_State *g, Proto *f) {
     markobjectN(g, f->upvalues[i].name);
   for (int i = 0; i < f->sizep; i++)  /* mark nested protos */
     markobjectN(g, f->p[i]);
-  for (int i = 0; i < f->sizelocvars; i++)  /* mark local-variable names */
-    markobjectN(g, f->locvars[i].varname);
-  return 1 + f->sizek + f->sizeupvalues + f->sizep + f->sizelocvars;
+  for (auto &v : f->locvars)
+    markobjectN(g, v.varname);  // mark local-variable names
+  return 1 + f->sizek + f->sizeupvalues + f->sizep + f->locvars.size();
 }
 
 

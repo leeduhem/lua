@@ -14,6 +14,9 @@
 
 #include "llimits.h"
 #include "lua.h"
+#include "lmem.h"
+
+#include <vector>
 
 /*
 ** Extra types for collectable non-values
@@ -469,6 +472,9 @@ struct LocVar {
   TString *varname;
   int startpc;  /* first point where variable is active */
   int endpc;    /* first point where variable is dead */
+
+  LocVar() = default;
+  LocVar(TString *name, int start, int end = 0) : varname(name), startpc(start), endpc(end) {}
 };
 
 
@@ -487,6 +493,8 @@ struct AbsLineInfo {
   int line;
 };
 
+global_State *&G(lua_State*);
+
 /*
 ** Function Prototypes
 */
@@ -499,7 +507,6 @@ struct Proto : public GCObject {
   int sizecode = 0;
   int sizelineinfo = 0;
   int sizep = 0;  /* size of 'p' */
-  int sizelocvars = 0;
   int sizeabslineinfo = 0;  /* size of 'abslineinfo' */
   int linedefined = 0;  /* debug information  */
   int lastlinedefined = 0;  /* debug information  */
@@ -509,11 +516,11 @@ struct Proto : public GCObject {
   Upvaldesc *upvalues = nullptr;  /* upvalue information */
   ls_byte *lineinfo = nullptr;  /* information about source lines (debug information) */
   AbsLineInfo *abslineinfo = nullptr;  /* idem */
-  LocVar *locvars = nullptr;  /* information about local variables (debug information) */
+  std::vector<LocVar> locvars;  // information about local variables (debug information)
   TString  *source = nullptr;  /* used for debug information */
   GCObject *gclist = nullptr;
 
- Proto(global_State *g, lu_byte tag) : GCObject(g, tag) {}
+ Proto(lua_State *L, lu_byte tag) : GCObject(G(L), tag) {}
 };
 
 /* }================================================================== */

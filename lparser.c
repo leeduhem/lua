@@ -171,13 +171,7 @@ static void codename (LexState *ls, expdesc *e) {
 */
 static int registerlocalvar (LexState *ls, FuncState *fs, TString *varname) {
   Proto *f = fs->f;
-  int oldsize = f->sizelocvars;
-  luaM_growvector(ls->L, f->locvars, fs->ndebugvars, f->sizelocvars,
-                  LocVar, SHRT_MAX, "local variables");
-  while (oldsize < f->sizelocvars)
-    f->locvars[oldsize++].varname = nullptr;
-  f->locvars[fs->ndebugvars].varname = varname;
-  f->locvars[fs->ndebugvars].startpc = fs->pc;
+  f->locvars.emplace_back(varname, fs->pc);
   luaC_objbarrier(ls->L, f, varname);
   return fs->ndebugvars++;
 }
@@ -724,7 +718,7 @@ static void close_func (LexState *ls) {
                        fs->nabslineinfo, AbsLineInfo);
   luaM_shrinkvector(L, f->k, f->sizek, fs->nk, TValue);
   luaM_shrinkvector(L, f->p, f->sizep, fs->np, Proto *);
-  luaM_shrinkvector(L, f->locvars, f->sizelocvars, fs->ndebugvars, LocVar);
+  lua_assert(f->locvars.size() == cast_sizet(fs->ndebugvars));
   luaM_shrinkvector(L, f->upvalues, f->sizeupvalues, fs->nups, Upvaldesc);
   ls->fs = fs->prev;
   luaC_checkGC(L);
