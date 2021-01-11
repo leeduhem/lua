@@ -164,8 +164,9 @@ struct FuncState {
   lu_byte iwthabs = 0;  /* instructions issued since last absolute line info */
   lu_byte needclose = 0;  /* function needs to close upvalues when returning */
 
-  FuncState(lua_State *L) :
-    blocks(std::vector<BlockCnt *, lua::allocator<BlockCnt *>>(lua::allocator<BlockCnt *>(L))) {}
+  FuncState(lua_State *L)
+    : blocks(lua::allocator<BlockCnt *>(L))
+  {}
 };
 
 
