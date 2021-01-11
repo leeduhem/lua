@@ -14,28 +14,19 @@
 
 
 #if !defined(LUA_NOCVTN2S)
-#define cvt2str(o)	ttisnumber(o)
+inline bool cvt2str(const TValue *o) { return ttisnumber(o); }
 #else
-#define cvt2str(o)	0	/* no conversion from numbers to strings */
+// no conversion from numbers to strings
+inline bool cvt2str(const TValue *o) { return false; }
 #endif
 
 
 #if !defined(LUA_NOCVTS2N)
-#define cvt2num(o)	ttisstring(o)
+inline bool cvt2num(const TValue *o) { return ttisstring(o); }
 #else
-#define cvt2num(o)	0	/* no conversion from strings to numbers */
+// no conversion from strings to numbers
+inline bool cvt2num(const TValue *o) { return false; }
 #endif
-
-
-/*
-** You can define LUA_FLOORN2I if you want to convert floats to integers
-** by flooring them (instead of raising an error if they are not
-** integral values)
-*/
-#if !defined(LUA_FLOORN2I)
-#define LUA_FLOORN2I		F2Ieq
-#endif
-
 
 /*
 ** Rounding modes for float->integer coercion
@@ -47,31 +38,80 @@ typedef enum {
 } F2Imod;
 
 
-/* convert an object to a float (including string coercion) */
-#define tonumber(o,n) \
-	(ttisfloat(o) ? (*(n) = fltvalue(o), 1) : luaV_tonumber_(o,n))
+/*
+** You can define LUA_FLOORN2I if you want to convert floats to integers
+** by flooring them (instead of raising an error if they are not integral values)
+*/
+#if !defined(LUA_FLOORN2I)
+constexpr F2Imod LUA_FLOORN2I = F2Ieq;
+#endif
 
+
+LUAI_FUNC int luaV_equalobj (lua_State *L, const TValue *t1, const TValue *t2);
+LUAI_FUNC int luaV_lessthan (lua_State *L, const TValue *l, const TValue *r);
+LUAI_FUNC int luaV_lessequal (lua_State *L, const TValue *l, const TValue *r);
+LUAI_FUNC int luaV_tonumber_ (const TValue *obj, lua_Number *n);
+LUAI_FUNC int luaV_tointeger (const TValue *obj, lua_Integer *p, F2Imod mode);
+LUAI_FUNC int luaV_tointegerns (const TValue *obj, lua_Integer *p, F2Imod mode);
+LUAI_FUNC int luaV_flttointeger (lua_Number n, lua_Integer *p, F2Imod mode);
+LUAI_FUNC void luaV_finishget (lua_State *L, const TValue *t, TValue *key, StkId val, const TValue *slot);
+LUAI_FUNC void luaV_finishset (lua_State *L, const TValue *t, TValue *key, TValue *val, const TValue *slot);
+LUAI_FUNC void luaV_finishOp (lua_State *L);
+LUAI_FUNC void luaV_execute (lua_State *L, CallInfo *ci);
+LUAI_FUNC void luaV_concat (lua_State *L, int total);
+LUAI_FUNC lua_Integer luaV_idiv (lua_State *L, lua_Integer x, lua_Integer y);
+LUAI_FUNC lua_Integer luaV_mod (lua_State *L, lua_Integer x, lua_Integer y);
+LUAI_FUNC lua_Number luaV_modf (lua_State *L, lua_Number x, lua_Number y);
+LUAI_FUNC lua_Integer luaV_shiftl (lua_Integer x, lua_Integer y);
+LUAI_FUNC void luaV_objlen (lua_State *L, StkId ra, const TValue *rb);
+
+
+/* convert an object to a float (including string coercion) */
+inline int tonumber(const TValue *o, lua_Number *n) {
+  if (ttisfloat(o)) {
+    *n = fltvalue(o);
+    return 1;
+  }
+  return luaV_tonumber_(o, n);
+}
 
 /* convert an object to a float (without string coercion) */
-#define tonumberns(o,n) \
-	(ttisfloat(o) ? ((n) = fltvalue(o), 1) : \
-	(ttisinteger(o) ? ((n) = cast_num(ivalue(o)), 1) : 0))
+inline int tonumberns(const TValue *o, lua_Number &n) {
+  if (ttisfloat(o)) {
+    n = fltvalue(o);
+    return 1;
+  }
+  if (ttisinteger(o)) {
+    n = cast_num(ivalue(o));
+    return 1;
+  }
+  return 0;
+}
 
 
 /* convert an object to an integer (including string coercion) */
-#define tointeger(o,i) \
-  (ttisinteger(o) ? (*(i) = ivalue(o), 1) : luaV_tointeger(o,i,LUA_FLOORN2I))
-
+inline int tointeger(const TValue *o, lua_Integer *i) {
+  if (ttisinteger(o)) {
+    *i = ivalue(o);
+    return 1;
+  }
+  return luaV_tointeger(o, i, LUA_FLOORN2I);
+}
 
 /* convert an object to an integer (without string coercion) */
-#define tointegerns(o,i) \
-  (ttisinteger(o) ? (*(i) = ivalue(o), 1) : luaV_tointegerns(o,i,LUA_FLOORN2I))
-
+inline int tointegerns(const TValue *o, lua_Integer *i) {
+  if (ttisinteger(o)) {
+    *i = ivalue(o);
+    return 1;
+  }
+  return luaV_tointegerns(o, i, LUA_FLOORN2I);
+}
 
 #define intop(op,v1,v2) l_castU2S(l_castS2U(v1) op l_castS2U(v2))
 
-#define luaV_rawequalobj(t1,t2)		luaV_equalobj(NULL,t1,t2)
-
+inline bool luaV_rawequalobj(const TValue *t1, const TValue *t2) {
+  return luaV_equalobj(nullptr, t1, t2);
+}
 
 /*
 ** fast track for 'gettable': if 't' is a table and 't[k]' is present,
@@ -103,32 +143,9 @@ typedef enum {
 ** Finish a fast set operation (when fast get succeeds). In that case,
 ** 'slot' points to the place to put the value.
 */
-#define luaV_finishfastset(L,t,slot,v) \
-    { setobj2t(L, cast(TValue *,slot), v); \
-      luaC_barrierback(L, gcvalue(t), v); }
-
-
-
-
-LUAI_FUNC int luaV_equalobj (lua_State *L, const TValue *t1, const TValue *t2);
-LUAI_FUNC int luaV_lessthan (lua_State *L, const TValue *l, const TValue *r);
-LUAI_FUNC int luaV_lessequal (lua_State *L, const TValue *l, const TValue *r);
-LUAI_FUNC int luaV_tonumber_ (const TValue *obj, lua_Number *n);
-LUAI_FUNC int luaV_tointeger (const TValue *obj, lua_Integer *p, F2Imod mode);
-LUAI_FUNC int luaV_tointegerns (const TValue *obj, lua_Integer *p,
-                                F2Imod mode);
-LUAI_FUNC int luaV_flttointeger (lua_Number n, lua_Integer *p, F2Imod mode);
-LUAI_FUNC void luaV_finishget (lua_State *L, const TValue *t, TValue *key,
-                               StkId val, const TValue *slot);
-LUAI_FUNC void luaV_finishset (lua_State *L, const TValue *t, TValue *key,
-                               TValue *val, const TValue *slot);
-LUAI_FUNC void luaV_finishOp (lua_State *L);
-LUAI_FUNC void luaV_execute (lua_State *L, CallInfo *ci);
-LUAI_FUNC void luaV_concat (lua_State *L, int total);
-LUAI_FUNC lua_Integer luaV_idiv (lua_State *L, lua_Integer x, lua_Integer y);
-LUAI_FUNC lua_Integer luaV_mod (lua_State *L, lua_Integer x, lua_Integer y);
-LUAI_FUNC lua_Number luaV_modf (lua_State *L, lua_Number x, lua_Number y);
-LUAI_FUNC lua_Integer luaV_shiftl (lua_Integer x, lua_Integer y);
-LUAI_FUNC void luaV_objlen (lua_State *L, StkId ra, const TValue *rb);
+inline void luaV_finishfastset(lua_State *L, const TValue *t, const TValue *slot, const TValue *v) {
+  setobj2t(L, cast(TValue *, slot), v);
+  luaC_barrierback(L, gcvalue(t), v);
+}
 
 #endif
