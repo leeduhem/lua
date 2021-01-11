@@ -228,8 +228,7 @@ static void loadDebug (LoadState *S, Proto *f) {
   loadVector(S, f->lineinfo.data(), n);
 
   n = loadInt(S);
-  f->abslineinfo = luaM_newvectorchecked(S->L, n, AbsLineInfo);
-  f->sizeabslineinfo = n;
+  f->abslineinfo.resize(n);
   for (int i = 0; i < n; i++) {
     f->abslineinfo[i].pc = loadInt(S);
     f->abslineinfo[i].line = loadInt(S);

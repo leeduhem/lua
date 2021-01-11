@@ -157,7 +157,7 @@ static void dumpDebug (DumpState *D, const Proto *f) {
   dumpInt(D, n);
   dumpVector(D, f->lineinfo.data(), n);
 
-  n = (D->strip) ? 0 : f->sizeabslineinfo;
+  n = (D->strip) ? 0 : f->abslineinfo.size();
   dumpInt(D, n);
   for (int i = 0; i < n; i++) {
     dumpInt(D, f->abslineinfo[i].pc);

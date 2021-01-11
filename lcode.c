@@ -315,12 +315,12 @@ void luaK_patchtohere (FuncState *fs, int list) {
 ** information.
 */
 #if !defined(MAXIWTHABS)
-#define MAXIWTHABS	120
+constexpr int MAXIWTHABS = 120;
 #endif
 
 
 /* limit for difference between lines in relative line info. */
-#define LIMLINEDIFF	0x80
+constexpr int LIMLINEDIFF = 0x80;
 
 
 /*
@@ -334,10 +334,10 @@ static void savelineinfo (FuncState *fs, Proto *f, int line) {
   int linedif = line - fs->previousline;
   int pc = fs->pc - 1;  /* last instruction coded */
   if (abs(linedif) >= LIMLINEDIFF || fs->iwthabs++ > MAXIWTHABS) {
-    luaM_growvector(fs->ls->L, f->abslineinfo, fs->nabslineinfo,
-                    f->sizeabslineinfo, AbsLineInfo, MAX_INT, "lines");
-    f->abslineinfo[fs->nabslineinfo].pc = pc;
-    f->abslineinfo[fs->nabslineinfo++].line = line;
+    if (f->abslineinfo.empty() || (cast_sizet(fs->nabslineinfo) > f->abslineinfo.size() - 1))
+      f->abslineinfo.resize(fs->nabslineinfo + 1);
+    f->abslineinfo[fs->nabslineinfo] = {pc, line};
+    fs->nabslineinfo++;
     linedif = ABSLINEINFO;  /* signal that there is absolute information */
     fs->iwthabs = 0;  /* restart counter */
   }

@@ -54,16 +54,16 @@ static int currentpc (CallInfo *ci) {
 ** the first absolute one.
 */
 static int getbaseline (const Proto *f, int pc, int *basepc) {
-  if (f->sizeabslineinfo == 0 || pc < f->abslineinfo[0].pc) {
+  if (f->abslineinfo.empty() || pc < f->abslineinfo[0].pc) {
     *basepc = -1;  /* start from the beginning */
     return f->linedefined;
   }
   else {
     unsigned int i;
-    if (pc >= f->abslineinfo[f->sizeabslineinfo - 1].pc)
-      i = f->sizeabslineinfo - 1;  /* instruction is after last saved one */
+    if (pc >= f->abslineinfo.back().pc)
+      i = f->abslineinfo.size() - 1;  /* instruction is after last saved one */
     else {  /* binary search */
-      unsigned int j = f->sizeabslineinfo - 1;  /* pc < anchorlines[j] */
+      unsigned int j = f->abslineinfo.size() - 1;  /* pc < anchorlines[j] */
       i = 0;  /* abslineinfo[i] <= pc */
       while (i < j - 1) {
         unsigned int m = (j + i) / 2;

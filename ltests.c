@@ -742,9 +742,9 @@ static int listabslineinfo (lua_State *L) {
   luaL_argcheck(L, lua_isfunction(L, 1) && !lua_iscfunction(L, 1),
                  1, "Lua function expected");
   Proto *p = getproto(obj_at(L, 1));
-  luaL_argcheck(L, p->abslineinfo != NULL, 1, "function has no debug info");
-  lua_createtable(L, 2 * p->sizeabslineinfo, 0);
-  for (int i=0; i < p->sizeabslineinfo; i++) {
+  luaL_argcheck(L, !p->abslineinfo.empty(), 1, "function has no debug info");
+  lua_createtable(L, 2 * p->abslineinfo.size(), 0);
+  for (size_t i=0; i < p->abslineinfo.size(); i++) {
     lua_pushinteger(L, p->abslineinfo[i].pc);
     lua_rawseti(L, -2, 2 * i + 1);
     lua_pushinteger(L, p->abslineinfo[i].line);

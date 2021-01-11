@@ -495,6 +495,9 @@ struct LocVar {
 struct AbsLineInfo {
   int pc;
   int line;
+
+  AbsLineInfo() = default;
+  AbsLineInfo(int pc1, int line1) : pc(pc1), line(line1) {}
 };
 
 global_State *&G(lua_State*);
@@ -509,7 +512,6 @@ struct Proto : public GCObject {
   int sizek = 0;  /* size of 'k' */
   int sizecode = 0;
   int sizep = 0;  /* size of 'p' */
-  int sizeabslineinfo = 0;  /* size of 'abslineinfo' */
   int linedefined = 0;  /* debug information  */
   int lastlinedefined = 0;  /* debug information  */
   TValue *k = nullptr;  /* constants used by the function */
@@ -517,7 +519,7 @@ struct Proto : public GCObject {
   Proto **p = nullptr;  /* functions defined inside the function */
   std::vector<Upvaldesc, lua::allocator<Upvaldesc>> upvalues;  // upvalue information
   std::vector<ls_byte, lua::allocator<ls_byte>> lineinfo;  // information about source lines (debug information)
-  AbsLineInfo *abslineinfo = nullptr;  /* idem */
+  std::vector<AbsLineInfo> abslineinfo;  // idem
   std::vector<LocVar> locvars;  // information about local variables (debug information)
   TString  *source = nullptr;  /* used for debug information */
   GCObject *gclist = nullptr;
