@@ -158,7 +158,6 @@ struct FuncState {
   int nabslineinfo = 0;  /* number of elements in 'abslineinfo' */
   int firstlocal = 0;  /* index of first local var (in Dyndata array) */
   int firstlabel = 0;  /* index of first label (in 'dyd->label->arr') */
-  short ndebugvars = 0;  /* number of elements in 'f->locvars' */
   lu_byte nactvar = 0;  /* number of active local variables */
   lu_byte nups = 0;  /* number of upvalues */
   lu_byte freereg = 0;  /* first free register */

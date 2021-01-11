@@ -173,7 +173,7 @@ static int registerlocalvar (LexState *ls, FuncState *fs, TString *varname) {
   Proto *f = fs->f;
   f->locvars.emplace_back(varname, fs->pc);
   luaC_objbarrier(ls->L, f, varname);
-  return fs->ndebugvars++;
+  return f->locvars.size() - 1;
 }
 
 
@@ -241,7 +241,7 @@ static LocVar *localdebuginfo (FuncState *fs, int vidx) {
     return nullptr;  /* no debug info. for constants */
 
   int idx = vd->vd.pidx;
-  lua_assert(idx < fs->ndebugvars);
+  lua_assert(cast_sizet(idx) < fs->f->locvars.size());
   return &fs->f->locvars[idx];
 }
 
