@@ -807,7 +807,7 @@ struct SParser {  /* data to 'f_parser' */
   const char *mode;
   const char *name;
 
-  SParser(lua_State *L) : buff(L) {}
+  SParser(lua_State *L) : buff(L), dyd(L) {}
 };
 
 

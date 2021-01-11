@@ -123,7 +123,7 @@ struct Labeldesc {
 
 
 /* list of labels or gotos */
-typedef std::vector<Labeldesc> Labellist;
+typedef std::vector<Labeldesc, lua::allocator<Labeldesc>> Labellist;
 
 /* dynamic structures used by the parser */
 struct Dyndata {
@@ -134,6 +134,9 @@ struct Dyndata {
   } actvar;
   Labellist gt;  /* list of pending gotos */
   Labellist label;   /* list of active labels */
+
+  Dyndata(lua_State *L) :
+    gt(lua::allocator<Labeldesc>(L)), label(lua::allocator<Labeldesc>(L)) {}
 };
 
 
