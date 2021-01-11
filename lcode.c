@@ -31,10 +31,10 @@
 
 
 /* Maximum number of registers in a Lua function (must fit in 8 bits) */
-#define MAXREGS		255
+constexpr int MAXREGS = 255;
 
 
-#define hasjumps(e)	((e)->t != (e)->f)
+inline bool hasjumps(const expdesc *e) { return e->t != e->f; }
 
 
 static int codesJ (FuncState *fs, OpCode o, int sj, int k);
@@ -107,10 +107,9 @@ int luaK_exp2const (FuncState *fs, const expdesc *e, TValue *v) {
 
 
 /*
-** Return the previous instruction of the current code. If there
-** may be a jump target between the current instruction and the
-** previous one, return an invalid instruction (to avoid wrong
-** optimizations).
+** Return the previous instruction of the current code. If there may be a jump target
+** between the current instruction and the previous one, return an invalid instruction
+** (to avoid wrong optimizations).
 */
 static Instruction *previousinstruction (FuncState *fs) {
   static const Instruction invalidinstruction = ~(Instruction)0;
@@ -146,8 +145,7 @@ void luaK_nil (FuncState *fs, int from, int n) {
 
 
 /*
-** Gets the destination address of a jump instruction. Used to traverse
-** a list of jumps.
+** Gets the destination address of a jump instruction. Used to traverse a list of jumps.
 */
 static int getjump (FuncState *fs, int pc) {
   int offset = GETARG_sJ(fs->f->code[pc]);
@@ -227,15 +225,13 @@ static int condjump (FuncState *fs, OpCode op, int A, int B, int C, int k) {
 ** optimizations with consecutive instructions not in the same basic block).
 */
 int luaK_getlabel (FuncState *fs) {
-  fs->lasttarget = fs->pc;
-  return fs->pc;
+  return fs->lasttarget = fs->pc;
 }
 
 
 /*
-** Returns the position of the instruction "controlling" a given
-** jump (that is, its condition), or the jump itself if it is
-** unconditional.
+** Returns the position of the instruction "controlling" a given jump
+** (that is, its condition), or the jump itself if it is unconditional.
 */
 static Instruction *getjumpcontrol (FuncState *fs, int pc) {
   Instruction *pi = &fs->f->code[pc];
@@ -294,7 +290,7 @@ static void patchlistaux (FuncState *fs, int list, int vtarget, int reg, int dta
 
 
 /*
-** Path all jumps in 'list' to jump to 'target'.
+** Patch all jumps in 'list' to jump to 'target'.
 ** (The assert means that we cannot fix a jump to a forward address
 ** because we only know addresses once code is generated.)
 */
@@ -311,8 +307,7 @@ void luaK_patchtohere (FuncState *fs, int list) {
 
 
 /*
-** MAXimum number of successive Instructions WiTHout ABSolute line
-** information.
+** MAXimum number of successive Instructions WiTHout ABSolute line information.
 */
 #if !defined(MAXIWTHABS)
 constexpr int MAXIWTHABS = 120;
@@ -339,7 +334,7 @@ static void savelineinfo (FuncState *fs, Proto *f, int line) {
     f->abslineinfo[fs->nabslineinfo] = {pc, line};
     fs->nabslineinfo++;
     linedif = ABSLINEINFO;  /* signal that there is absolute information */
-    fs->iwthabs = 0;  /* restart counter */
+    fs->iwthabs = 0;	    /* restart counter */
   }
   if (f->lineinfo.empty() || (cast_sizet(pc) > f->lineinfo.size() - 1))
     f->lineinfo.resize(pc + 1);
@@ -370,8 +365,7 @@ static void removelastlineinfo (FuncState *fs) {
 
 
 /*
-** Remove the last instruction created, correcting line information
-** accordingly.
+** Remove the last instruction created, correcting line information accordingly.
 */
 static void removelastinstruction (FuncState *fs) {
   removelastlineinfo(fs);
@@ -523,8 +517,7 @@ static void freeexp (FuncState *fs, expdesc *e) {
 
 
 /*
-** Free registers used by expressions 'e1' and 'e2' (if any) in proper
-** order.
+** Free registers used by expressions 'e1' and 'e2' (if any) in proper order.
 */
 static void freeexps (FuncState *fs, expdesc *e1, expdesc *e2) {
   int r1 = (e1->k == VNONRELOC) ? e1->u.info : -1;
