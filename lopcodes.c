@@ -12,6 +12,9 @@
 
 #include "lopcodes.h"
 
+constexpr lu_byte opmode(lu_byte mm, lu_byte ot, lu_byte it, lu_byte t, lu_byte a, lu_byte m) {
+  return (mm << 7) | (ot << 6) | (it << 5) | (t << 4) | (a << 3) | m;
+}
 
 /* ORDER OP */
 
