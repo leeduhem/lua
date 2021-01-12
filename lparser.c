@@ -181,16 +181,14 @@ static int registerlocalvar (LexState *ls, FuncState *fs, TString *varname) {
 ** Create a new local variable with the given 'name'. Return its index in the function.
 */
 static int new_localvar (LexState *ls, TString *name) {
-  lua_State *L = ls->L;
   FuncState *fs = ls->fs;
   Dyndata *dyd = ls->dyd;
-  checklimit(fs, dyd->actvar.n + 1 - fs->firstlocal, MAXVARS, "local variables");
-  luaM_growvector(L, dyd->actvar.arr, dyd->actvar.n,
-                  dyd->actvar.size, Vardesc, USHRT_MAX, "local variables");
-  Vardesc *var = new (&dyd->actvar.arr[dyd->actvar.n++]) Vardesc();
-  var->vd.kind = VDKREG;  /* default */
-  var->vd.name = name;
-  return dyd->actvar.n - 1 - fs->firstlocal;
+  checklimit(fs, dyd->actvar.size() + 1 - fs->firstlocal, MAXVARS, "local variables");
+  dyd->actvar.resize(dyd->actvar.size() + 1);
+  Vardesc &var = dyd->actvar.back();
+  var.vd.kind = VDKREG;  // default
+  var.vd.name = name;
+  return dyd->actvar.size() - 1 - fs->firstlocal;
 }
 
 #define new_localvarliteral(ls,v) \
@@ -204,7 +202,7 @@ static int new_localvar (LexState *ls, TString *name) {
 ** compiler indices.)
 */
 static Vardesc *getlocalvardesc (FuncState *fs, int vidx) {
-  return &fs->ls->dyd->actvar.arr[fs->firstlocal + vidx];
+  return &fs->ls->dyd->actvar[fs->firstlocal + vidx];
 }
 
 
@@ -265,7 +263,7 @@ static void check_readonly (LexState *ls, expdesc *e) {
   TString *varname = nullptr;  /* to be set if variable is const */
   switch (e->k) {
     case VCONST: {
-      varname = ls->dyd->actvar.arr[e->u.info].vd.name;
+      varname = ls->dyd->actvar[e->u.info].vd.name;
       break;
     }
     case VLOCAL: {
@@ -311,7 +309,7 @@ static void adjustlocalvars (LexState *ls, int nvars) {
 */
 static void removevars (FuncState *fs, int tolevel) {
   lua_assert(fs->nactvar >= tolevel);
-  fs->ls->dyd->actvar.n -= (fs->nactvar - tolevel);
+  fs->ls->dyd->actvar.resize(fs->ls->dyd->actvar.size() - (fs->nactvar - tolevel));
   while (fs->nactvar > tolevel) {
     LocVar *var = localdebuginfo(fs, --fs->nactvar);
     if (var)  /* does it have debug information? */
@@ -671,7 +669,7 @@ static void open_func (LexState *ls, FuncState *fs, BlockCnt *bl) {
   ls->fs = fs;
   fs->ls = ls;
   fs->previousline = f->linedefined;
-  fs->firstlocal = ls->dyd->actvar.n;
+  fs->firstlocal = ls->dyd->actvar.size();
   fs->firstlabel = ls->dyd->label.size();
   f->source = ls->source;
   luaC_objbarrier(ls->L, f, f->source);
@@ -1865,12 +1863,11 @@ LClosure *luaY_parser (lua_State *L, ZIO *z, Mbuffer *buff,
   luaC_objbarrier(L, funcstate.f, funcstate.f->source);
   lexstate.buff = buff;
   lexstate.dyd = dyd;
-  dyd->actvar.n = 0;
   lexstate.set_input(L, z, funcstate.f->source, firstchar);
   mainfunc(&lexstate, &funcstate);
   lua_assert(!funcstate.prev && funcstate.nups == 1 && !lexstate.fs);
   /* all scopes should be correctly finished */
-  lua_assert(dyd->actvar.n == 0 && dyd->gt.size() == 0 && dyd->label.size() == 0);
+  lua_assert(dyd->actvar.size() == 0 && dyd->gt.size() == 0 && dyd->label.size() == 0);
   L->top--;  /* remove scanner's table */
   return cl;  /* closure is on the stack, too */
 }

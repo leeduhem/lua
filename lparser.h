@@ -37,10 +37,10 @@ enum expkind {
   VNONRELOC,  /* expression has its value in a fixed register;
                  info = result register */
   VLOCAL,  /* local variable; var.sidx = stack index (local register);
-              var.vidx = relative index in 'actvar.arr'  */
+              var.vidx = relative index in 'actvar'  */
   VUPVAL,  /* upvalue variable; info = index of upvalue in 'upvalues' */
   VCONST,  /* compile-time <const> variable;
-              info = absolute index in 'actvar.arr'  */
+              info = absolute index in 'actvar'  */
   VINDEXED,  /* indexed variable;
                 ind.t = table register;
                 ind.idx = key's R index */
@@ -79,7 +79,7 @@ struct expdesc {
     } ind;
     struct {  /* for local variables */
       lu_byte sidx;  /* index in the stack */
-      unsigned short vidx;  /* compiler index (in 'actvar.arr')  */
+      unsigned short vidx;  /* compiler index (in 'actvar')  */
     } var;
   } u;
   int t;  /* patch list of 'exit when true' */
@@ -127,16 +127,15 @@ typedef std::vector<Labeldesc, lua::allocator<Labeldesc>> Labellist;
 
 /* dynamic structures used by the parser */
 struct Dyndata {
-  struct {  /* list of all active local variables */
-    Vardesc *arr;
-    int n;
-    int size;
-  } actvar;
+  std::vector<Vardesc, lua::allocator<Vardesc>> actvar;  // list of all active local variables
   Labellist gt;  /* list of pending gotos */
   Labellist label;   /* list of active labels */
 
-  Dyndata(lua_State *L) :
-    gt(lua::allocator<Labeldesc>(L)), label(lua::allocator<Labeldesc>(L)) {}
+  Dyndata(lua_State *L)
+    : actvar(lua::allocator<Vardesc>(L))
+    , gt(lua::allocator<Labeldesc>(L))
+    , label(lua::allocator<Labeldesc>(L))
+  {}
 };
 
 

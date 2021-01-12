@@ -842,10 +842,8 @@ int luaD_protectedparser (lua_State *L, ZIO *z, const char *name, const char *mo
   int status;
   incnny(L);  /* cannot yield during parsing */
   p.z = z; p.name = name; p.mode = mode;
-  p.dyd.actvar.arr = NULL; p.dyd.actvar.size = 0;
   status = luaD_pcall(L, f_parser, &p, savestack(L, L->top), L->errfunc);
   p.buff.clear();
-  luaM_freearray(L, p.dyd.actvar.arr, p.dyd.actvar.size);
   decnny(L);
   return status;
 }
