@@ -116,18 +116,14 @@ struct Labeldesc {
   lu_byte nactvar;  /* number of active variables in that position */
   lu_byte close;  /* goto that escapes upvalues */
 
+  Labeldesc() = default;
   Labeldesc(TString *name1, int pc1, int line1, lu_byte nactvar1, lu_byte close1)
     : name(name1), pc(pc1), line(line1), nactvar(nactvar1), close(close1) {}
 };
 
 
 /* list of labels or gotos */
-struct Labellist {
-  Labeldesc *arr;  /* array */
-  int n;  /* number of entries in use */
-  int size;  /* array size */
-};
-
+typedef std::vector<Labeldesc> Labellist;
 
 /* dynamic structures used by the parser */
 struct Dyndata {

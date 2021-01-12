@@ -466,10 +466,10 @@ inline void leavelevel(LexState *ls) {
 /*
 ** Generates an error that a goto jumps into the scope of some local variable.
 */
-static l_noret jumpscopeerror (LexState *ls, Labeldesc *gt) {
-  const char *varname = getstr(getlocalvardesc(ls->fs, gt->nactvar)->vd.name);
+static l_noret jumpscopeerror (LexState *ls, Labeldesc &gt) {
+  const char *varname = getstr(getlocalvardesc(ls->fs, gt.nactvar)->vd.name);
   const char *msg = "<goto %s> at line %d jumps into the scope of local '%s'";
-  msg = luaO_pushfstring(ls->L, msg, getstr(gt->name), gt->line, varname);
+  msg = luaO_pushfstring(ls->L, msg, getstr(gt.name), gt.line, varname);
   luaK_semerror(ls, msg);  /* raise the error */
 }
 
@@ -479,16 +479,14 @@ static l_noret jumpscopeerror (LexState *ls, Labeldesc *gt) {
 ** from the list of pending goto's.
 ** If it jumps into the scope of some variable, raises an error.
 */
-static void solvegoto (LexState *ls, int g, Labeldesc *label) {
-  Labellist *gl = &ls->dyd->gt;  /* list of goto's */
-  Labeldesc *gt = &gl->arr[g];  /* goto to be resolved */
-  lua_assert(eqstr(gt->name, label->name));
-  if (unlikely(gt->nactvar < label->nactvar))  /* enter some scope? */
+static void solvegoto (LexState *ls, int g, Labeldesc &label) {
+  Labellist &gl = ls->dyd->gt;  // list of goto's
+  Labeldesc &gt = gl[g];	// goto to be resolved
+  lua_assert(eqstr(gt.name, label.name));
+  if (unlikely(gt.nactvar < label.nactvar))  /* enter some scope? */
     jumpscopeerror(ls, gt);
-  luaK_patchlist(ls->fs, gt->pc, label->pc);
-  for (int i = g; i < gl->n - 1; i++)  /* remove goto from pending list */
-    gl->arr[i] = gl->arr[i + 1];
-  gl->n--;
+  luaK_patchlist(ls->fs, gt.pc, label.pc);
+  gl.erase(gl.cbegin() + g);
 }
 
 
@@ -498,10 +496,10 @@ static void solvegoto (LexState *ls, int g, Labeldesc *label) {
 static Labeldesc *findlabel (LexState *ls, TString *name) {
   Dyndata *dyd = ls->dyd;
   /* check labels in current function for a match */
-  Labeldesc *begin = dyd->label.arr + ls->fs->firstlabel, *end = dyd->label.arr + dyd->label.n;
-  Labeldesc *lb = std::find_if(begin, end, [name] (const Labeldesc &l) { return eqstr(l.name, name); });
-  if (lb != end)
-    return lb;
+  auto it = std::find_if(dyd->label.begin() + ls->fs->firstlabel, dyd->label.end(),
+			 [name] (const Labeldesc &l) { return eqstr(l.name, name); });
+  if (it != dyd->label.end())
+    return &*it;
   return nullptr;  /* label not found */
 }
 
@@ -509,20 +507,14 @@ static Labeldesc *findlabel (LexState *ls, TString *name) {
 /*
 ** Adds a new label/goto in the corresponding list.
 */
-static int newlabelentry (LexState *ls, Labellist *l, TString *name,
-                          int line, int pc) {
-  int n = l->n;
-  luaM_growvector(ls->L, l->arr, n, l->size,
-                  Labeldesc, SHRT_MAX, "labels/gotos");
-  Labeldesc *lb = l->arr + n;
-  lb = new (lb) Labeldesc(name, pc,line, ls->fs->nactvar, 0);
-  l->n = n + 1;
-  return n;
+static int newlabelentry (LexState *ls, Labellist &l, TString *name, int line, int pc) {
+  l.emplace_back(name, pc, line, ls->fs->nactvar, 0);
+  return l.size() - 1;
 }
 
 
 static int newgotoentry (LexState *ls, TString *name, int line, int pc) {
-  return newlabelentry(ls, &ls->dyd->gt, name, line, pc);
+  return newlabelentry(ls, ls->dyd->gt, name, line, pc);
 }
 
 
@@ -531,13 +523,13 @@ static int newgotoentry (LexState *ls, TString *name, int line, int pc) {
 ** pending gotos in current block and solves them. Return true
 ** if any of the goto's need to close upvalues.
 */
-static int solvegotos (LexState *ls, Labeldesc *lb) {
-  Labellist *gl = &ls->dyd->gt;
+static int solvegotos (LexState *ls, Labeldesc &lb) {
+  Labellist &gl = ls->dyd->gt;
   auto bl = ls->fs->blocks.back();
   int needsclose = 0;
-  for (int i = bl->firstgoto; i < gl->n; ) {
-    if (eqstr(gl->arr[i].name, lb->name)) {
-      needsclose |= gl->arr[i].close;
+  for (size_t i = bl->firstgoto; i < gl.size(); ) {
+    if (eqstr(gl[i].name, lb.name)) {
+      needsclose |= gl[i].close;
       solvegoto(ls, i, lb);  /* will remove 'i' from the list */
     }
     else
@@ -556,13 +548,13 @@ static int solvegotos (LexState *ls, Labeldesc *lb) {
 */
 static int createlabel (LexState *ls, TString *name, int line, int last) {
   FuncState *fs = ls->fs;
-  Labellist *ll = &ls->dyd->label;
+  Labellist &ll = ls->dyd->label;
   int l = newlabelentry(ls, ll, name, line, luaK_getlabel(fs));
   if (last) {  /* label is last no-op statement in the block? */
     /* assume that locals are already out of scope */
-    ll->arr[l].nactvar = fs->blocks.back()->nactvar;
+    ll[l].nactvar = fs->blocks.back()->nactvar;
   }
-  if (solvegotos(ls, &ll->arr[l])) {  /* need close? */
+  if (solvegotos(ls, ll[l])) {  /* need close? */
     luaK_codeABC(fs, OP_CLOSE, luaY_nvarstack(fs), 0, 0);
     return 1;
   }
@@ -576,7 +568,7 @@ static int createlabel (LexState *ls, TString *name, int line, int last) {
 static void movegotosout (FuncState *fs, BlockCnt *bl) {
   Labellist *gl = &fs->ls->dyd->gt;
   /* correct pending gotos to current block */
-  std::for_each(gl->arr + bl->firstgoto, gl->arr + gl->n,
+  std::for_each(gl->begin() + bl->firstgoto, gl->end(),
 		[fs, bl] (Labeldesc &gt) {
 		  // leaving a variable scope?
 		  if (stacklevel(fs, gt.nactvar) > stacklevel(fs, bl->nactvar))
@@ -589,8 +581,8 @@ static void movegotosout (FuncState *fs, BlockCnt *bl) {
 static void enterblock (FuncState *fs, BlockCnt *bl, lu_byte isloop) {
   bl->isloop = isloop;
   bl->nactvar = fs->nactvar;
-  bl->firstlabel = fs->ls->dyd->label.n;
-  bl->firstgoto = fs->ls->dyd->gt.n;
+  bl->firstlabel = fs->ls->dyd->label.size();
+  bl->firstgoto = fs->ls->dyd->gt.size();
   bl->upval = 0;
   bl->insidetbc = (!fs->blocks.empty() && fs->blocks.back()->insidetbc);
   fs->blocks.push_back(bl);
@@ -601,15 +593,15 @@ static void enterblock (FuncState *fs, BlockCnt *bl, lu_byte isloop) {
 /*
 ** generates an error for an undefined 'goto'.
 */
-static l_noret undefgoto (LexState *ls, Labeldesc *gt) {
+static l_noret undefgoto (LexState *ls, Labeldesc &gt) {
   const char *msg;
-  if (eqstr(gt->name, luaS_newliteral(ls->L, "break"))) {
+  if (eqstr(gt.name, luaS_newliteral(ls->L, "break"))) {
     msg = "break outside loop at line %d";
-    msg = luaO_pushfstring(ls->L, msg, gt->line);
+    msg = luaO_pushfstring(ls->L, msg, gt.line);
   }
   else {
     msg = "no visible label '%s' for <goto> at line %d";
-    msg = luaO_pushfstring(ls->L, msg, getstr(gt->name), gt->line);
+    msg = luaO_pushfstring(ls->L, msg, getstr(gt.name), gt.line);
   }
   luaK_semerror(ls, msg);
 }
@@ -628,12 +620,12 @@ static void leaveblock (FuncState *fs) {
   removevars(fs, bl->nactvar);
   lua_assert(bl->nactvar == fs->nactvar);
   fs->freereg = stklevel;  /* free registers */
-  ls->dyd->label.n = bl->firstlabel;  /* remove local labels */
+  ls->dyd->label.resize(bl->firstlabel);  // remove local labels
   if (is_inner_block)
     movegotosout(fs, bl);  /* update pending gotos to outer block */
   else {
-    if (bl->firstgoto < ls->dyd->gt.n)  /* pending gotos in outer block? */
-      undefgoto(ls, &ls->dyd->gt.arr[bl->firstgoto]);  /* error */
+    if (cast_sizet(bl->firstgoto) < ls->dyd->gt.size())  /* pending gotos in outer block? */
+      undefgoto(ls, ls->dyd->gt[bl->firstgoto]);  /* error */
   }
   fs->blocks.pop_back();
 }
@@ -680,7 +672,7 @@ static void open_func (LexState *ls, FuncState *fs, BlockCnt *bl) {
   fs->ls = ls;
   fs->previousline = f->linedefined;
   fs->firstlocal = ls->dyd->actvar.n;
-  fs->firstlabel = ls->dyd->label.n;
+  fs->firstlabel = ls->dyd->label.size();
   f->source = ls->source;
   luaC_objbarrier(ls->L, f, f->source);
   f->maxstacksize = 2;  /* registers 0/1 are always valid */
@@ -1873,12 +1865,12 @@ LClosure *luaY_parser (lua_State *L, ZIO *z, Mbuffer *buff,
   luaC_objbarrier(L, funcstate.f, funcstate.f->source);
   lexstate.buff = buff;
   lexstate.dyd = dyd;
-  dyd->actvar.n = dyd->gt.n = dyd->label.n = 0;
+  dyd->actvar.n = 0;
   lexstate.set_input(L, z, funcstate.f->source, firstchar);
   mainfunc(&lexstate, &funcstate);
   lua_assert(!funcstate.prev && funcstate.nups == 1 && !lexstate.fs);
   /* all scopes should be correctly finished */
-  lua_assert(dyd->actvar.n == 0 && dyd->gt.n == 0 && dyd->label.n == 0);
+  lua_assert(dyd->actvar.n == 0 && dyd->gt.size() == 0 && dyd->label.size() == 0);
   L->top--;  /* remove scanner's table */
   return cl;  /* closure is on the stack, too */
 }
