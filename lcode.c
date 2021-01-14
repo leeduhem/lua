@@ -43,7 +43,7 @@ static int codesJ (FuncState *fs, OpCode o, int sj, int k);
 
 /* semantic error */
 l_noret luaK_semerror (LexState *ls, const char *msg) {
-  ls->t.token = 0;  /* remove "near <token>" from final message */
+  ls->t = Token(0); // remove "near <token>" from final message
   ls->syntax_error(msg);
 }
 

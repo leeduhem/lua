@@ -10,6 +10,7 @@
 #include <limits.h>
 
 #include "lobject.h"
+#include "lstring.h"
 #include "lzio.h"
 
 
@@ -45,18 +46,94 @@ enum RESERVED {
 constexpr int NUM_RESERVED = cast_int(TK_WHILE-FIRST_RESERVED + 1);
 
 
-union SemInfo {
-  lua_Number r;
-  lua_Integer i;
-  TString *ts;
-};  /* semantics information */
+class Token {
+  friend inline bool operator==(const Token &a, const Token &b);
+  friend inline bool operator==(const Token &a, int tok);
 
+ public:
+ Token(): token(TK_INT), ival{0} {}
+ explicit Token(int tok): token(tok) {}
+ Token(lua_Integer i): token(TK_INT), ival(i) {}
+ Token(lua_Number r): token(TK_FLT), rval(r) {}
+ Token(TString *ts): token(TK_STRING), sval(ts) {}
+ Token(TString *ts, int tok): token(tok), sval(ts) {}
+ Token(const Token &t): token(t.token) { copyUnion(t); }
 
-struct Token {
-  int token;
-  SemInfo seminfo;
+ Token &operator=(const Token &t) {
+   token = t.token;
+   copyUnion(t);
+   return *this;
+ }
+
+ Token &operator=(lua_Integer i) {
+   token = TK_INT;
+   ival = i;
+   return *this;
+ }
+
+ Token &operator=(lua_Number r) {
+   token = TK_FLT;
+   rval = r;
+   return *this;
+ }
+
+ Token &operator=(TString *ts) {
+   token = TK_STRING;
+   sval = ts;
+   return *this;
+ }
+
+ operator lua_Integer() const { assert(token == TK_INT); return ival; }
+ operator lua_Number() const { assert(token == TK_FLT); return rval; }
+ operator TString *() const { assert(token == TK_STRING || token == TK_NAME); return sval; }
+
+ operator int() const { return token; }
+
+ private:
+  int token;  // discriminant
+  union {
+    lua_Integer ival;
+    lua_Number rval;
+    TString *sval;
+  };
+
+  void copyUnion(const Token &t) {
+    switch (t.token) {
+    case TK_INT: ival = t.ival; break;
+    case TK_FLT: rval = t.rval; break;
+    case TK_STRING:
+    case TK_NAME:
+      sval = t.sval; break;
+    }
+  }
+
+  bool equalUnion(const Token &t) const {
+    switch (t.token) {
+    case TK_INT: return ival == t.ival;
+    case TK_FLT: return rval == t.rval;
+    case TK_STRING:
+    case TK_NAME:
+      return eqstr(sval, t.sval);
+    }
+    return false;
+  }
 };
 
+inline bool operator==(const Token &a, const Token &b) {
+  return (a.token == b.token) && a.equalUnion(b);
+}
+
+inline bool operator!=(const Token &a, const Token &b) {
+  return !(a == b);
+}
+
+inline bool operator==(const Token &a, int tok) {
+  return a.token == tok;
+}
+
+inline bool operator!=(const Token &a, int tok) {
+  return !(a == tok);
+}
 
 /* state of the lexer plus state of the parser when shared by all
    functions */
@@ -81,7 +158,7 @@ struct LexState {
   TString *new_string (const char *str, size_t l);
   void next_token ();
   int lookahead_token ();
-  l_noret syntax_error (const char *msg) { lexerror(msg, t.token); }
+  l_noret syntax_error (const char *msg) { lexerror(msg, t); }
   const char *token2str (int token);
 
  private:
@@ -97,9 +174,9 @@ struct LexState {
   int check_next1(int c);
   int check_next2(const char *set);
 
-  int read_numeral(SemInfo *seminfo);
+  Token read_numeral();
   size_t skip_sep();
-  void read_long_string(SemInfo *seminfo, size_t sep);
+  TString *read_long_string(size_t sep, bool is_string = false);
   void escape_check(int c, const char *msg);
 
   int gethexa();
@@ -107,9 +184,9 @@ struct LexState {
   unsigned long readutf8esc();
   void utf8esc();
   int readdecesc();
-  void read_string(int del, SemInfo *seminfo);
+  TString *read_string(int del);
 
-  int llex(SemInfo *seminfo);
+  Token llex();
 };
 
 

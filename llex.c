@@ -136,10 +136,10 @@ void LexState::increment_line_number () {
 
 
 void LexState::set_input (lua_State *L1, ZIO *z1, TString *source1, int firstchar) {
-  t.token = 0;
+  t = Token(0);
+  lookahead = Token(TK_EOS);  /* no look-ahead token */
   L = L1;
   current = firstchar;
-  lookahead.token = TK_EOS;  /* no look-ahead token */
   z = z1;
   fs = NULL;
   linenumber = 1;
@@ -192,7 +192,7 @@ int LexState::check_next2 (const char *set) {
 **
 ** The caller might have already read an initial dot.
 */
-int LexState::read_numeral (SemInfo *seminfo) {
+Token LexState::read_numeral () {
   TValue obj;
   const char *expo = "Ee";
   int first = current;
@@ -213,14 +213,10 @@ int LexState::read_numeral (SemInfo *seminfo) {
   if (luaO_str2num(buff->data(), &obj) == 0)  /* format error? */
     lexerror("malformed number", TK_FLT);
   if (ttisinteger(&obj)) {
-    seminfo->i = ivalue(&obj);
-    return TK_INT;
+    return Token(ivalue(&obj));
   }
-  else {
-    lua_assert(ttisfloat(&obj));
-    seminfo->r = fltvalue(&obj);
-    return TK_FLT;
-  }
+  lua_assert(ttisfloat(&obj));
+  return Token(fltvalue(&obj));
 }
 
 
@@ -245,7 +241,7 @@ size_t LexState::skip_sep () {
 }
 
 
-void LexState::read_long_string (SemInfo *seminfo, size_t sep) {
+TString *LexState::read_long_string (size_t sep, bool is_string) {
   int line = linenumber;  /* initial line (for error message) */
   save_and_next();  /* skip 2nd '[' */
   if (current_is_newline())  /* string starts with a newline? */
@@ -253,7 +249,7 @@ void LexState::read_long_string (SemInfo *seminfo, size_t sep) {
   for (;;) {
     switch (current) {
       case EOZ: {  /* error */
-        const char *what = (seminfo ? "string" : "comment");
+        const char *what = (is_string ? "string" : "comment");
         const char *msg = luaO_pushfstring(L,
                      "unfinished long %s (starting at line %d)", what, line);
         lexerror(msg, TK_EOS);
@@ -269,18 +265,20 @@ void LexState::read_long_string (SemInfo *seminfo, size_t sep) {
       case '\n': case '\r': {
         save('\n');
 	increment_line_number();
-        if (!seminfo) buff->clear();  /* avoid wasting space */
+        if (!is_string) buff->clear();  /* avoid wasting space */
         break;
       }
       default: {
-        if (seminfo) save_and_next();
+        if (is_string) save_and_next();
         else next();
       }
     }
   }
  endloop:
-  if (seminfo)
-    seminfo->ts = new_string(buff->data() + sep, buff->size() - 2 * sep);
+  if (is_string)
+    return new_string(buff->data() + sep, buff->size() - 2 * sep);
+
+  return nullptr;
 }
 
 void LexState::escape_check(int c, const char *msg) {
@@ -344,7 +342,7 @@ int LexState::readdecesc () {
 }
 
 
-void LexState::read_string (int del, SemInfo *seminfo) {
+TString *LexState::read_string (int del) {
   save_and_next();  /* keep delimiter (for error messages) */
   while (current != del) {
     switch (current) {
@@ -402,11 +400,11 @@ void LexState::read_string (int del, SemInfo *seminfo) {
     }
   }
   save_and_next();  /* skip delimiter */
-  seminfo->ts = new_string(buff->data() + 1, buff->size() - 2);
+  return new_string(buff->data() + 1, buff->size() - 2);
 }
 
 
-int LexState::llex (SemInfo *seminfo) {
+Token LexState::llex () {
   buff->clear();
   for (;;) {
     switch (current) {
@@ -420,14 +418,14 @@ int LexState::llex (SemInfo *seminfo) {
       }
       case '-': {  /* '-' or '--' (comment) */
         next();
-        if (current != '-') return '-';
+        if (current != '-') return Token('-');
         /* else is a comment */
         next();
         if (current == '[') {  /* long comment? */
           size_t sep = skip_sep();
           buff->clear();  /* 'skip_sep' may dirty the buffer */
           if (sep >= 2) {
-            read_long_string(NULL, sep);  /* skip long comment */
+            read_long_string(sep);  /* skip long comment */
             buff->clear();  /* previous call may dirty the buff. */
             break;
           }
@@ -440,64 +438,64 @@ int LexState::llex (SemInfo *seminfo) {
       case '[': {  /* long string or simply '[' */
         size_t sep = skip_sep();
         if (sep >= 2) {
-          read_long_string(seminfo, sep);
-          return TK_STRING;
+	  TString *ts = read_long_string(sep, true);
+	  return Token(ts);
         }
         if (sep == 0)  /* '[=...' missing second bracket? */
           lexerror("invalid long string delimiter", TK_STRING);
-        return '[';
+        return Token('[');
       }
       case '=': {
         next();
-        if (check_next1('=')) return TK_EQ;  /* '==' */
-        return '=';
+        if (check_next1('=')) return Token(TK_EQ);  /* '==' */
+        return Token('=');
       }
       case '<': {
         next();
-        if (check_next1('=')) return TK_LE;  /* '<=' */
-	if (check_next1('<')) return TK_SHL;  /* '<<' */
-	return '<';
+        if (check_next1('=')) return Token(TK_LE);  /* '<=' */
+	if (check_next1('<')) return Token(TK_SHL);  /* '<<' */
+	return Token('<');
       }
       case '>': {
         next();
-        if (check_next1('=')) return TK_GE;  /* '>=' */
-	if (check_next1('>')) return TK_SHR;  /* '>>' */
-	return '>';
+        if (check_next1('=')) return Token(TK_GE);  /* '>=' */
+	if (check_next1('>')) return Token(TK_SHR);  /* '>>' */
+	return Token('>');
       }
       case '/': {
         next();
-        if (check_next1('/')) return TK_IDIV;  /* '//' */
-	return '/';
+        if (check_next1('/')) return Token(TK_IDIV);  /* '//' */
+	return Token('/');
       }
       case '~': {
         next();
-        if (check_next1('=')) return TK_NE;  /* '~=' */
-	return '~';
+        if (check_next1('=')) return Token(TK_NE);  /* '~=' */
+	return Token('~');
       }
       case ':': {
         next();
-        if (check_next1(':')) return TK_DBCOLON;  /* '::' */
-	return ':';
+        if (check_next1(':')) return Token(TK_DBCOLON);  /* '::' */
+	return Token(':');
       }
       case '"': case '\'': {  /* short literal strings */
-        read_string(current, seminfo);
-        return TK_STRING;
+	TString *ts = read_string(current);
+	return Token(ts);
       }
       case '.': {  /* '.', '..', '...', or number */
         save_and_next();
         if (check_next1('.')) {
-          if (check_next1('.')) return TK_DOTS;   /* '...' */
-	  return TK_CONCAT;   /* '..' */
+          if (check_next1('.')) return Token(TK_DOTS);   /* '...' */
+	  return Token(TK_CONCAT);   /* '..' */
         }
-        if (!lisdigit(current)) return '.';
-	return read_numeral(seminfo);
+        if (!lisdigit(current)) return Token('.');
+	return read_numeral();
       }
       case '0': case '1': case '2': case '3': case '4':
       case '5': case '6': case '7': case '8': case '9': {
-        return read_numeral(seminfo);
+        return read_numeral();
       }
       case EOZ: {
-        return TK_EOS;
+        return Token(TK_EOS);
       }
       default: {
         if (lislalpha(current)) {  /* identifier or reserved word? */
@@ -505,16 +503,15 @@ int LexState::llex (SemInfo *seminfo) {
             save_and_next();
           } while (lislalnum(current));
           TString *ts = new_string(buff->data(), buff->size());
-          seminfo->ts = ts;
           if (isreserved(ts))  /* reserved word? */
-            return ts->extra - 1 + FIRST_RESERVED;
-	  return TK_NAME;
+	    return Token(ts, ts->extra - 1 + FIRST_RESERVED);
+	  return Token(ts, TK_NAME);
         }
 
 	/* single-char tokens ('+', '*', '%', '{', '}', ...) */
 	int c = current;
 	next();
-	return c;
+	return Token(c);
       }
     }
   }
@@ -523,17 +520,17 @@ int LexState::llex (SemInfo *seminfo) {
 
 void LexState::next_token () {
   lastline = linenumber;
-  if (lookahead.token != TK_EOS) {  /* is there a look-ahead token? */
+  if (lookahead != TK_EOS) {  /* is there a look-ahead token? */
     t = lookahead;  /* use this one */
-    lookahead.token = TK_EOS;  /* and discharge it */
+    lookahead = Token(TK_EOS);  /* and discharge it */
   }
   else
-    t.token = llex(&t.seminfo);  /* read next token */
+    t = llex();  /* read next token */
 }
 
 
 int LexState::lookahead_token () {
-  lua_assert(lookahead.token == TK_EOS);
-  lookahead.token = llex(&lookahead.seminfo);
-  return lookahead.token;
+  lua_assert(lookahead == TK_EOS);
+  lookahead = llex();
+  return lookahead;
 }

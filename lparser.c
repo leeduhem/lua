@@ -91,7 +91,7 @@ static void checklimit (FuncState *fs, int v, int l, const char *what) {
 ** Test whether next token is 'c'; if so, skip it.
 */
 static int testnext (LexState *ls, int c) {
-  if (ls->t.token == c) {
+  if (ls->t == c) {
     ls->next_token();
     return 1;
   }
@@ -103,7 +103,7 @@ static int testnext (LexState *ls, int c) {
 ** Check that next token is 'c'.
 */
 static void check (LexState *ls, int c) {
-  if (ls->t.token != c)
+  if (ls->t != c)
     error_expected(ls, c);
 }
 
@@ -141,7 +141,7 @@ static void check_match (LexState *ls, int what, int who, int where) {
 
 static TString *str_checkname (LexState *ls) {
   check(ls, TK_NAME);
-  TString *ts = ls->t.seminfo.ts;
+  TString *ts = ls->t;
   ls->next_token();
   return ts;
 }
@@ -706,7 +706,7 @@ static void close_func (LexState *ls) {
 ** so it is handled in separate.
 */
 static int block_follow (LexState *ls, int withuntil) {
-  switch (ls->t.token) {
+  switch (static_cast<int>(ls->t)) {
     case TK_ELSE: case TK_ELSEIF:
     case TK_END: case TK_EOS:
       return 1;
@@ -719,7 +719,7 @@ static int block_follow (LexState *ls, int withuntil) {
 static void statlist (LexState *ls) {
   /* statlist -> { stat [';'] } */
   while (!block_follow(ls, 1)) {
-    if (ls->t.token == TK_RETURN) {
+    if (ls->t == TK_RETURN) {
       statement(ls);
       return;  /* 'return' must be last statement */
     }
@@ -769,11 +769,11 @@ static void recfield (LexState *ls, ConsControl *cc) {
   FuncState *fs = ls->fs;
   int reg = ls->fs->freereg;
   expdesc tab, key, val;
-  if (ls->t.token == TK_NAME) {
+  if (ls->t == TK_NAME) {
     checklimit(fs, cc->nh, MAX_INT, "items in a constructor");
     codename(ls, &key);
   }
-  else  /* ls->t.token == '[' */
+  else  /* ls->t == '[' */
     yindex(ls, &key);
   cc->nh++;
   checknext(ls, '=');
@@ -822,7 +822,7 @@ static void listfield (LexState *ls, ConsControl *cc) {
 
 static void field (LexState *ls, ConsControl *cc) {
   /* field -> listfield | recfield */
-  switch(ls->t.token) {
+  switch(static_cast<int>(ls->t)) {
     case TK_NAME: {  /* may be 'listfield' or 'recfield' */
       if (ls->lookahead_token() != '=')  /* expression? */
         listfield(ls, cc);
@@ -857,7 +857,7 @@ static void constructor (LexState *ls, expdesc *t) {
   checknext(ls, '{');
   do {
     lua_assert(cc.v.k == VVOID || cc.tostore > 0);
-    if (ls->t.token == '}') break;
+    if (ls->t == '}') break;
     closelistfield(fs, &cc);
     field(ls, &cc);
   } while (testnext(ls, ',') || testnext(ls, ';'));
@@ -881,9 +881,9 @@ static void parlist (LexState *ls) {
   Proto *f = fs->f;
   int nparams = 0;
   int isvararg = 0;
-  if (ls->t.token != ')') {  /* is 'parlist' not empty? */
+  if (ls->t != ')') {  /* is 'parlist' not empty? */
     do {
-      switch (ls->t.token) {
+      switch (static_cast<int>(ls->t)) {
         case TK_NAME: {
           new_localvar(ls, str_checkname(ls));
           nparams++;
@@ -945,10 +945,10 @@ static void funcargs (LexState *ls, expdesc *f, int line) {
   FuncState *fs = ls->fs;
   expdesc args;
   int base, nparams;
-  switch (ls->t.token) {
+  switch (static_cast<int>(ls->t)) {
     case '(': {  /* funcargs -> '(' [ explist ] ')' */
       ls->next_token();
-      if (ls->t.token == ')')  /* arg list is empty? */
+      if (ls->t == ')')  /* arg list is empty? */
         args.k = VVOID;
       else {
         explist(ls, &args);
@@ -963,8 +963,8 @@ static void funcargs (LexState *ls, expdesc *f, int line) {
       break;
     }
     case TK_STRING: {  /* funcargs -> STRING */
-      codestring(&args, ls->t.seminfo.ts);
-      ls->next_token();  /* must use 'seminfo' before 'next' */
+      codestring(&args, ls->t);
+      ls->next_token();  /* must use 'ls->t' before 'next_token' */
       break;
     }
     default: {
@@ -998,7 +998,7 @@ static void funcargs (LexState *ls, expdesc *f, int line) {
 
 static void primaryexp (LexState *ls, expdesc *v) {
   /* primaryexp -> NAME | '(' expr ')' */
-  switch (ls->t.token) {
+  switch (static_cast<int>(ls->t)) {
     case '(': {
       int line = ls->linenumber;
       ls->next_token();
@@ -1025,7 +1025,7 @@ static void suffixedexp (LexState *ls, expdesc *v) {
   int line = ls->linenumber;
   primaryexp(ls, v);
   for (;;) {
-    switch (ls->t.token) {
+    switch (static_cast<int>(ls->t)) {
       case '.': {  /* fieldsel */
         fieldsel(ls, v);
         break;
@@ -1059,19 +1059,19 @@ static void suffixedexp (LexState *ls, expdesc *v) {
 static void simpleexp (LexState *ls, expdesc *v) {
   /* simpleexp -> FLT | INT | STRING | NIL | TRUE | FALSE | ... |
                   constructor | FUNCTION body | suffixedexp */
-  switch (ls->t.token) {
+  switch (static_cast<int>(ls->t)) {
     case TK_FLT: {
       init_exp(v, VKFLT, 0);
-      v->u.nval = ls->t.seminfo.r;
+      v->u.nval = ls->t;
       break;
     }
     case TK_INT: {
       init_exp(v, VKINT, 0);
-      v->u.ival = ls->t.seminfo.i;
+      v->u.ival = ls->t;
       break;
     }
     case TK_STRING: {
-      codestring(v, ls->t.seminfo.ts);
+      codestring(v, ls->t);
       break;
     }
     case TK_NIL: {
@@ -1178,7 +1178,7 @@ static const struct {
 */
 static BinOpr subexpr (LexState *ls, expdesc *v, int limit) {
   enterlevel(ls);
-  UnOpr uop = getunopr(ls->t.token);
+  UnOpr uop = getunopr(ls->t);
   if (uop != OPR_NOUNOPR) {  /* prefix (unary) operator? */
     int line = ls->linenumber;
     ls->next_token();  /* skip operator */
@@ -1187,7 +1187,7 @@ static BinOpr subexpr (LexState *ls, expdesc *v, int limit) {
   }
   else simpleexp(ls, v);
   /* expand while operators have priorities higher than 'limit' */
-  BinOpr op = getbinopr(ls->t.token);
+  BinOpr op = getbinopr(ls->t);
   while (op != OPR_NOBINOPR && priority[op].left > limit) {
     expdesc v2;
     int line = ls->linenumber;
@@ -1373,7 +1373,7 @@ static void checkrepeated (LexState *ls, TString *name) {
 static void labelstat (LexState *ls, TString *name, int line) {
   /* label -> '::' NAME '::' */
   checknext(ls, TK_DBCOLON);  /* skip double colon */
-  while (ls->t.token == ';' || ls->t.token == TK_DBCOLON)
+  while (ls->t == ';' || ls->t == TK_DBCOLON)
     statement(ls);  /* skip other no-op statements */
   checkrepeated(ls, name);  /* check for repeated labels */
   createlabel(ls, name, line, block_follow(ls, 0));
@@ -1537,7 +1537,7 @@ static void forstat (LexState *ls, int line) {
   enterblock(fs, &bl, 1);  /* scope for loop and control variables */
   ls->next_token();  /* skip 'for' */
   TString *varname = str_checkname(ls);  /* first variable name */
-  switch (ls->t.token) {
+  switch (static_cast<int>(ls->t)) {
     case '=': fornum(ls, varname, line); break;
     case ',': case TK_IN: forlist(ls, varname); break;
     default: ls->syntax_error("'=' or 'in' expected");
@@ -1556,7 +1556,7 @@ static void test_then_block (LexState *ls, int *escapelist) {
   ls->next_token();  /* skip IF or ELSEIF */
   expr(ls, &v);  /* read condition */
   checknext(ls, TK_THEN);
-  if (ls->t.token == TK_BREAK) {  /* 'if x then break' ? */
+  if (ls->t == TK_BREAK) {  /* 'if x then break' ? */
     int line = ls->linenumber;
     luaK_goiffalse(ls->fs, &v);  /* will jump if condition is true */
     ls->next_token();  /* skip 'break' */
@@ -1577,8 +1577,8 @@ static void test_then_block (LexState *ls, int *escapelist) {
   }
   statlist(ls);  /* 'then' part */
   leaveblock(fs);
-  if (ls->t.token == TK_ELSE ||
-      ls->t.token == TK_ELSEIF)  /* followed by 'else'/'elseif'? */
+  if (ls->t == TK_ELSE ||
+      ls->t == TK_ELSEIF)  /* followed by 'else'/'elseif'? */
     luaK_concat(fs, escapelist, luaK_jump(fs));  /* must jump over it */
   luaK_patchtohere(fs, jf);
 }
@@ -1589,7 +1589,7 @@ static void ifstat (LexState *ls, int line) {
   FuncState *fs = ls->fs;
   int escapelist = NO_JUMP;  /* exit list for finished parts */
   test_then_block(ls, &escapelist);  /* IF cond THEN block */
-  while (ls->t.token == TK_ELSEIF)
+  while (ls->t == TK_ELSEIF)
     test_then_block(ls, &escapelist);  /* ELSEIF cond THEN block */
   if (testnext(ls, TK_ELSE))
     block(ls);  /* 'else' part */
@@ -1682,9 +1682,9 @@ static int funcname (LexState *ls, expdesc *v) {
   /* funcname -> NAME {fieldsel} [':' NAME] */
   int ismethod = 0;
   singlevar(ls, v);
-  while (ls->t.token == '.')
+  while (ls->t == '.')
     fieldsel(ls, v);
-  if (ls->t.token == ':') {
+  if (ls->t == ':') {
     ismethod = 1;
     fieldsel(ls, v);
   }
@@ -1708,7 +1708,7 @@ static void exprstat (LexState *ls) {
   FuncState *fs = ls->fs;
   struct LHS_assign v;
   suffixedexp(ls, &v.v);
-  if (ls->t.token == '=' || ls->t.token == ',') { /* stat -> assignment ? */
+  if (ls->t == '=' || ls->t == ',') { /* stat -> assignment ? */
     v.prev = nullptr;
     restassign(ls, &v, 1);
   }
@@ -1726,7 +1726,7 @@ static void retstat (LexState *ls) {
   expdesc e;
   int nret;  /* number of values being returned */
   int first = luaY_nvarstack(fs);  /* first slot to be returned */
-  if (block_follow(ls, 1) || ls->t.token == ';')
+  if (block_follow(ls, 1) || ls->t == ';')
     nret = 0;  /* return no values */
   else {
     nret = explist(ls, &e);  /* optional return values */
@@ -1756,7 +1756,7 @@ static void retstat (LexState *ls) {
 static void statement (LexState *ls) {
   int line = ls->linenumber;  /* may be needed for error messages */
   enterlevel(ls);
-  switch (ls->t.token) {
+  switch (static_cast<int>(ls->t)) {
     case ';': {  /* stat -> ';' (empty statement) */
       ls->next_token();  /* skip ';' */
       break;

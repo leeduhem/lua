@@ -32,7 +32,7 @@
 /*
 ** equality for long strings
 */
-int luaS_eqlngstr (TString *a, TString *b) {
+int luaS_eqlngstr (const TString *a, const TString *b) {
   size_t len = a->u.lnglen;
   lua_assert(a->tt == LUA_VLNGSTR && b->tt == LUA_VLNGSTR);
   return (a == b) ||  /* same instance or... */
