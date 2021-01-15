@@ -33,7 +33,7 @@
 #include "ltable.h"
 #include "lualib.h"
 
-
+#include <cstddef>
 
 /*
 ** The whole module only makes sense with LUA_DEBUG on
@@ -159,13 +159,12 @@ static void warnf (void *ud, const char *msg, int tocont) {
 
 #define MARK		0x55  /* 01010101 (a nice pattern) */
 
-typedef union Header {
-  LUAI_MAXALIGN;
+union alignas(std::max_align_t) Header {
   struct {
     size_t size;
     int type;
   } d;
-} Header;
+};
 
 
 #if defined(EXTERNMEMCHECK)

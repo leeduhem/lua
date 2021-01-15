@@ -14,6 +14,7 @@
 
 #include "lua.h"
 
+#include <cstddef>
 
 /* global table */
 #define LUA_GNAME	"_G"
@@ -187,8 +188,7 @@ struct luaL_Buffer {
   size_t size;  /* buffer size */
   size_t n;  /* number of characters in buffer */
   lua_State *L;
-  union {
-    LUAI_MAXALIGN;  /* ensure maximum alignment for buffer */
+  alignas(std::max_align_t) union {
     char b[LUAL_BUFFERSIZE];  /* initial buffer */
   } init;
 };

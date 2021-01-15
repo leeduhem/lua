@@ -17,6 +17,7 @@
 #include "lmem.h"
 
 #include <vector>
+#include <cstddef>
 
 /*
 ** Extra types for collectable non-values
@@ -379,9 +380,8 @@ inline bool ttisfulluserdata(const TValue *o) { return checktag(o, ctb(LUA_VUSER
 
 
 /* Ensures that addresses after this type are always fully aligned. */
-union UValue {
+union alignas(std::max_align_t) UValue {
   TValue uv;
-  LUAI_MAXALIGN;  /* ensures maximum alignment for udata bytes */
 };
 
 
@@ -413,7 +413,7 @@ struct Udata0 : public GCObject {
   unsigned short nuvalue;  /* number of user values */
   size_t len;  /* number of bytes */
   struct Table *metatable;
-  union {LUAI_MAXALIGN;} bindata;
+  std::max_align_t bindata;
 
  Udata0(global_State *g, lu_byte tag) : GCObject(g, tag) {}
 };
