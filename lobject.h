@@ -629,32 +629,24 @@ inline bool ttistable(const TValue *o) { return checktag(o, ctb(LUA_VTABLE)); }
 
 /*
 ** Nodes for Hash tables: A pack of two TValue's (key-value pairs)
-** plus a 'next' field to link colliding entries. The distribution
-** of the key's fields ('key_tt' and 'key_val') not forming a proper
-** 'TValue' allows for a smaller size for 'Node' both in 4-byte
-** and 8-byte alignments.
+** plus a 'next' field to link colliding entries.
 */
-union Node {
-  struct NodeKey {
-    Value value_;  // fields for value
-    lu_byte tt_;
-    lu_byte key_tt;  /* key type */
-    int next;  /* for chaining */
-    Value key_val;  /* key value */
-  } u;
-  TValue i_val;  /* direct access to node's value as a proper 'TValue' */
+struct Node {
+  TValue val;
+  TValue key;
+  int next;   // for chaining
 };
 
 
 /* copy a value into a key */
 inline void setnodekey(lua_State *L, Node *node, const TValue *obj) {
-  node->u.key_val = obj->value_; node->u.key_tt = obj->tt_;
+  node->key = *obj;
   checkliveness(L, obj);
 }
 
 /* copy a value from a key */
 inline void getnodekey(lua_State *L, TValue *obj, const Node *node) {
-  obj->value_ = node->u.key_val; obj->tt_ = node->u.key_tt;
+  *obj = node->key;
   checkliveness(L, obj);
 }
 
@@ -687,10 +679,10 @@ inline void setnorealasize(Table *t) { t->flags |= BITRAS; }
 /*
 ** Functions to manipulate keys inserted in nodes
 */
-inline const lu_byte &keytt(const Node *node) { return node->u.key_tt; }
-inline lu_byte &keytt(Node *node) { return node->u.key_tt; }
-inline const Value &keyval(const Node *node) { return node->u.key_val; }
-inline Value &keyval(Node *node) { return node->u.key_val; }
+inline const lu_byte &keytt(const Node *node) { return node->key.tt_; }
+inline lu_byte &keytt(Node *node) { return node->key.tt_; }
+inline const Value &keyval(const Node *node) { return node->key.value_; }
+inline Value &keyval(Node *node) { return node->key.value_; }
 
 inline bool keyisnil(const Node *node) { return keytt(node) == LUA_TNIL; }
 inline bool keyisinteger(const Node *node) { return keytt(node) == LUA_VNUMINT; }
