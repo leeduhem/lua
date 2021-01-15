@@ -94,18 +94,13 @@ constexpr lu_byte RDKTOCLOSE = 2;   /* to-be-closed */
 constexpr lu_byte RDKCTC     = 3;   /* compile-time constant */
 
 /* description of an active local variable */
-union Vardesc {
-  struct {
-    Value value_;  // constant value (if it is a compile-time constant)
-    lu_byte tt_;
-    lu_byte kind;
-    lu_byte sidx;  /* index of the variable in the stack */
-    short pidx;  /* index of the variable in the Proto's 'locvars' array */
-    TString *name;  /* variable name */
-  } vd;
-  TValue k;  /* constant value (if any) */
+struct Vardesc {
+  TValue k;      // constant value (if it is a compile-time constant)
+  lu_byte kind;
+  lu_byte sidx;  // index of the variable in the stack
+  short pidx;    // index of the variable in the Proto's 'locvars' array
+  TString *name; // variable name
 };
-
 
 
 /* description of pending goto statements and label statements */

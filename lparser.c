@@ -186,8 +186,8 @@ static int new_localvar (LexState *ls, TString *name) {
   checklimit(fs, dyd->actvar.size() + 1 - fs->firstlocal, MAXVARS, "local variables");
   dyd->actvar.resize(dyd->actvar.size() + 1);
   Vardesc &var = dyd->actvar.back();
-  var.vd.kind = VDKREG;  // default
-  var.vd.name = name;
+  var.kind = VDKREG;  // default
+  var.name = name;
   return dyd->actvar.size() - 1 - fs->firstlocal;
 }
 
@@ -215,8 +215,8 @@ static Vardesc *getlocalvardesc (FuncState *fs, int vidx) {
 static int stacklevel (FuncState *fs, int nvar) {
   while (nvar-- > 0) {
     Vardesc *vd = getlocalvardesc(fs, nvar);  /* get variable */
-    if (vd->vd.kind != RDKCTC)  /* is in the stack? */
-      return vd->vd.sidx + 1;
+    if (vd->kind != RDKCTC)  /* is in the stack? */
+      return vd->sidx + 1;
   }
   return 0;  /* no variables in the stack */
 }
@@ -235,10 +235,10 @@ int luaY_nvarstack (FuncState *fs) {
 */
 static LocVar *localdebuginfo (FuncState *fs, int vidx) {
   Vardesc *vd = getlocalvardesc(fs,  vidx);
-  if (vd->vd.kind == RDKCTC)
+  if (vd->kind == RDKCTC)
     return nullptr;  /* no debug info. for constants */
 
-  int idx = vd->vd.pidx;
+  int idx = vd->pidx;
   lua_assert(cast_sizet(idx) < fs->f->locvars.size());
   return &fs->f->locvars[idx];
 }
@@ -251,7 +251,7 @@ static void init_var (FuncState *fs, expdesc *e, int vidx) {
   e->f = e->t = NO_JUMP;
   e->k = VLOCAL;
   e->u.var.vidx = vidx;
-  e->u.var.sidx = getlocalvardesc(fs, vidx)->vd.sidx;
+  e->u.var.sidx = getlocalvardesc(fs, vidx)->sidx;
 }
 
 
@@ -263,13 +263,13 @@ static void check_readonly (LexState *ls, expdesc *e) {
   TString *varname = nullptr;  /* to be set if variable is const */
   switch (e->k) {
     case VCONST: {
-      varname = ls->dyd->actvar[e->u.info].vd.name;
+      varname = ls->dyd->actvar[e->u.info].name;
       break;
     }
     case VLOCAL: {
       Vardesc *vardesc = getlocalvardesc(fs, e->u.var.vidx);
-      if (vardesc->vd.kind != VDKREG)  /* not a regular variable? */
-        varname = vardesc->vd.name;
+      if (vardesc->kind != VDKREG)  /* not a regular variable? */
+        varname = vardesc->name;
       break;
     }
     case VUPVAL: {
@@ -298,8 +298,8 @@ static void adjustlocalvars (LexState *ls, int nvars) {
   for (int i = 0; i < nvars; i++) {
     int vidx = fs->nactvar++;
     Vardesc *var = getlocalvardesc(fs, vidx);
-    var->vd.sidx = stklevel++;
-    var->vd.pidx = registerlocalvar(ls, fs, var->vd.name);
+    var->sidx = stklevel++;
+    var->pidx = registerlocalvar(ls, fs, var->name);
   }
 }
 
@@ -335,8 +335,8 @@ static int newupvalue (FuncState *fs, TString *name, expdesc *v) {
   Proto *f = fs->f;
   FuncState *prev = fs->prev;
   if (v->k == VLOCAL) {
-    f->upvalues.emplace_back(name, 1, v->u.var.sidx, getlocalvardesc(prev, v->u.var.vidx)->vd.kind);
-    lua_assert(eqstr(name, getlocalvardesc(prev, v->u.var.vidx)->vd.name));
+    f->upvalues.emplace_back(name, 1, v->u.var.sidx, getlocalvardesc(prev, v->u.var.vidx)->kind);
+    lua_assert(eqstr(name, getlocalvardesc(prev, v->u.var.vidx)->name));
   }
   else {
     f->upvalues.emplace_back(name, 0, cast_byte(v->u.info), prev->f->upvalues[v->u.info].kind);
@@ -355,8 +355,8 @@ static int newupvalue (FuncState *fs, TString *name, expdesc *v) {
 static int searchvar (FuncState *fs, TString *n, expdesc *var) {
   for (int i = cast_int(fs->nactvar) - 1; i >= 0; i--) {
     Vardesc *vd = getlocalvardesc(fs, i);
-    if (eqstr(n, vd->vd.name)) {  /* found? */
-      if (vd->vd.kind == RDKCTC)  /* compile-time constant? */
+    if (eqstr(n, vd->name)) {  /* found? */
+      if (vd->kind == RDKCTC)  /* compile-time constant? */
         init_exp(var, VCONST, fs->firstlocal + i);
       else  /* real variable */
         init_var(fs, var, i);
@@ -465,7 +465,7 @@ inline void leavelevel(LexState *ls) {
 ** Generates an error that a goto jumps into the scope of some local variable.
 */
 static l_noret jumpscopeerror (LexState *ls, Labeldesc &gt) {
-  const char *varname = getstr(getlocalvardesc(ls->fs, gt.nactvar)->vd.name);
+  const char *varname = getstr(getlocalvardesc(ls->fs, gt.nactvar)->name);
   const char *msg = "<goto %s> at line %d jumps into the scope of local '%s'";
   msg = luaO_pushfstring(ls->L, msg, getstr(gt.name), gt.line, varname);
   luaK_semerror(ls, msg);  /* raise the error */
@@ -1648,7 +1648,7 @@ static void localstat (LexState *ls) {
   do {
     vidx = new_localvar(ls, str_checkname(ls));
     kind = getlocalattribute(ls);
-    getlocalvardesc(fs, vidx)->vd.kind = kind;
+    getlocalvardesc(fs, vidx)->kind = kind;
     if (kind == RDKTOCLOSE) {  /* to-be-closed? */
       if (toclose != -1)  /* one already present? */
         luaK_semerror(ls, "multiple to-be-closed variables in local list");
@@ -1664,9 +1664,9 @@ static void localstat (LexState *ls) {
   }
   Vardesc *var = getlocalvardesc(fs, vidx);  /* get last variable */
   if (nvars == nexps &&  /* no adjustments? */
-      var->vd.kind == RDKCONST &&  /* last variable is const? */
+      var->kind == RDKCONST &&  /* last variable is const? */
       luaK_exp2const(fs, &e, &var->k)) {  /* compile-time constant? */
-    var->vd.kind = RDKCTC;  /* variable is a compile-time constant */
+    var->kind = RDKCTC;  /* variable is a compile-time constant */
     adjustlocalvars(ls, nvars - 1);  /* exclude last variable */
     fs->nactvar++;  /* but count it */
   }
