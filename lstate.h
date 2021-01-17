@@ -379,7 +379,8 @@ inline lu_mem gettotalbytes(global_State *g) {
 
 // Threads
 inline void setthvalue(lua_State *L, TValue *obj, lua_State *x) {
-  obj->gc = obj2gco(x); settt_(obj, ctb(LUA_VTHREAD));
+  lua_assert(obj2gco(x)->tt == LUA_VTHREAD);
+  *obj = obj2gco(x);
   checkliveness(L, obj);
 }
 
@@ -389,7 +390,7 @@ inline void setthvalue2s(lua_State *L, StkId o, lua_State *t) {
 
 // TStrings
 inline void setsvalue(lua_State *L, TValue *obj, TString *x) {
-  obj->gc = obj2gco(x); settt_(obj, ctb(x->tt));
+  *obj = obj2gco(x);
   checkliveness(L, obj);
 }
 
@@ -405,17 +406,19 @@ inline void setsvalue2n(lua_State *L, TValue *obj, TString *x) {
 
 // Udata
 inline void setpvalue(TValue *o, void *x) {
-  o->p = x; settt_(o, LUA_VLIGHTUSERDATA);
+  *o = x;
 }
 
 inline void setuvalue(lua_State *L, TValue *obj, Udata *x) {
-  obj->gc = obj2gco(x); settt_(obj, ctb(LUA_VUSERDATA));
+  lua_assert(obj2gco(x)->tt == LUA_VUSERDATA);
+  *obj = obj2gco(x);
   checkliveness(L, obj);
 }
 
 // Closure
 inline void setclLvalue(lua_State *L, TValue *obj, LClosure *x) {
-  obj->gc = obj2gco(x); settt_(obj, ctb(LUA_VLCL));
+  lua_assert(obj2gco(x)->tt == LUA_VLCL);
+  *obj = obj2gco(x);
   checkliveness(L, obj);
 }
 
@@ -424,17 +427,19 @@ inline void setclLvalue2s(lua_State *L, StkId o, LClosure *cl) {
 }
 
 inline void setfvalue(TValue *o, lua_CFunction x) {
-  o->f = x; settt_(o, LUA_VLCF);
+  *o = x;
 }
 
 inline void setclCvalue(lua_State *L, TValue *obj, CClosure *x) {
-  obj->gc = obj2gco(x); settt_(obj, ctb(LUA_VCCL));
+  lua_assert(obj2gco(x)->tt == LUA_VCCL);
+  *obj = obj2gco(x);
   checkliveness(L, obj);
 }
 
 // Table
 inline void sethvalue(lua_State *L, TValue *obj, Table *x) {
-  obj->gc = obj2gco(x); settt_(obj, ctb(LUA_VTABLE));
+  lua_assert(obj2gco(x)->tt == LUA_VTABLE);
+  *obj = obj2gco(x);
   checkliveness(L, obj);
 }
 

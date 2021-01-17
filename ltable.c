@@ -89,9 +89,9 @@
 #define dummynode		(&dummynode_)
 
 static const Node dummynode_ = {
-  {LUA_VEMPTY, {nullptr}}, // value's type and value
-  {LUA_VNIL, {nullptr}},   // key's type and value
-  0			   // next
+  TValue{LUA_VEMPTY}, // value
+  TValue{LUA_VNIL},   // key
+  0		      // next
 };
 
 
@@ -135,7 +135,7 @@ static int l_hashfloat (lua_Number n) {
 ** nodes.
 */
 static Node *mainposition (const Table *t, const TValue *k) {
-  switch (withvariant(rawtt(k))) {
+  switch (ttypetag(k)) {
     case LUA_VNUMINT:
       return hashint(t, ivalueraw(k));
     case LUA_VNUMFLT:

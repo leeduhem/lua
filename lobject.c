@@ -30,7 +30,7 @@
 
 #include <sstream>
 
-TValue ABSTKEYCONSTANT = { LUA_VABSTKEY, nullptr };
+TValue ABSTKEYCONSTANT { LUA_VABSTKEY };
 
 /*
 ** Computes ceil(log2(x))
