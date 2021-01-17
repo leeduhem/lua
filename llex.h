@@ -50,46 +50,46 @@ class Token {
   friend inline bool operator==(const Token &a, const Token &b);
   friend inline bool operator==(const Token &a, int tok);
 
- public:
- Token(): token(TK_INT), ival{0} {}
- explicit Token(int tok): token(tok) {}
- Token(lua_Integer i): token(TK_INT), ival(i) {}
- Token(lua_Number r): token(TK_FLT), rval(r) {}
- Token(TString *ts): token(TK_STRING), sval(ts) {}
- Token(TString *ts, int tok): token(tok), sval(ts) {}
- Token(const Token &t): token(t.token) { copyUnion(t); }
+public:
+  Token(): token(TK_INT), ival{0} {}
+  explicit Token(int tok): token(tok) {}
+  Token(lua_Integer i): token(TK_INT), ival(i) {}
+  Token(lua_Number r): token(TK_FLT), rval(r) {}
+  Token(TString *ts): token(TK_STRING), sval(ts) {}
+  Token(TString *ts, int tok): token(tok), sval(ts) {}
+  Token(const Token &t): token(t.token) { copyUnion(t); }
 
- Token &operator=(const Token &t) {
-   token = t.token;
-   copyUnion(t);
-   return *this;
- }
+  Token &operator=(const Token &t) {
+    token = t.token;
+    copyUnion(t);
+    return *this;
+  }
 
- Token &operator=(lua_Integer i) {
-   token = TK_INT;
-   ival = i;
-   return *this;
- }
+  Token &operator=(lua_Integer i) {
+    token = TK_INT;
+    ival = i;
+    return *this;
+  }
 
- Token &operator=(lua_Number r) {
-   token = TK_FLT;
-   rval = r;
-   return *this;
- }
+  Token &operator=(lua_Number r) {
+    token = TK_FLT;
+    rval = r;
+    return *this;
+  }
 
- Token &operator=(TString *ts) {
-   token = TK_STRING;
-   sval = ts;
-   return *this;
- }
+  Token &operator=(TString *ts) {
+    token = TK_STRING;
+    sval = ts;
+    return *this;
+  }
 
- operator lua_Integer() const { assert(token == TK_INT); return ival; }
- operator lua_Number() const { assert(token == TK_FLT); return rval; }
- operator TString *() const { assert(token == TK_STRING || token == TK_NAME); return sval; }
+  operator lua_Integer() const { assert(token == TK_INT); return ival; }
+  operator lua_Number() const { assert(token == TK_FLT); return rval; }
+  operator TString *() const { assert(token == TK_STRING || token == TK_NAME); return sval; }
 
- operator int() const { return token; }
+  operator int() const { return token; }
 
- private:
+private:
   int token;  // discriminant
   union {
     lua_Integer ival;
@@ -115,7 +115,7 @@ class Token {
     case TK_NAME:
       return eqstr(sval, t.sval);
     }
-    return false;
+    return true;
   }
 };
 
@@ -135,8 +135,7 @@ inline bool operator!=(const Token &a, int tok) {
   return !(a == tok);
 }
 
-/* state of the lexer plus state of the parser when shared by all
-   functions */
+/* state of the lexer plus state of the parser when shared by all functions */
 struct LexState {
   int current;  /* current character (charint) */
   int linenumber;  /* input line counter */
@@ -152,8 +151,7 @@ struct LexState {
   TString *source;  /* current source name */
   TString *envn;  /* environment variable name */
 
-  // Public interface
- public:
+public:
   void set_input (lua_State *L, ZIO *z, TString *source, int firstchar);
   TString *new_string (const char *str, size_t l);
   void next_token ();
@@ -161,7 +159,7 @@ struct LexState {
   l_noret syntax_error (const char *msg) { lexerror(msg, t); }
   const char *token2str (int token);
 
- private:
+private:
   void next();
   bool current_is_newline();
   void save_and_next();
