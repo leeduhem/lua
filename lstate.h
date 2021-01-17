@@ -328,39 +328,39 @@ union GCUnion {
 
 /* Functions to convert a GCObject into a specific value */
 inline TString *gco2ts(GCObject *o) {
-  return check_exp(novariant(o->tt) == LUA_TSTRING, &(cast_u(o))->ts);
+  return check_exp(novariant(o->tt) == LUA_TSTRING, static_cast<TString *>(o));
 }
 
 inline Udata *gco2u(GCObject *o) {
-  return check_exp(o->tt == LUA_VUSERDATA, &(cast_u(o))->u);
+  return check_exp(o->tt == LUA_VUSERDATA, static_cast<Udata *>(o));
 }
 
 inline LClosure *gco2lcl(GCObject *o) {
-  return check_exp(o->tt == LUA_VLCL, &(cast_u(o))->cl.l);
+  return check_exp(o->tt == LUA_VLCL, static_cast<LClosure *>(o));
 }
 
 inline CClosure *gco2ccl(GCObject *o) {
-  return check_exp(o->tt == LUA_VCCL, &(cast_u(o))->cl.c);
+  return check_exp(o->tt == LUA_VCCL, static_cast<CClosure *>(o));
 }
 
 inline Closure *gco2cl(GCObject *o) {
-  return check_exp(novariant(o->tt) == LUA_TFUNCTION, &(cast_u(o))->cl);
+  return check_exp(novariant(o->tt) == LUA_TFUNCTION, reinterpret_cast<Closure *>(o));
 }
 
 inline Table *gco2t(GCObject *o) {
-  return check_exp(o->tt == LUA_VTABLE, &(cast_u(o))->h);
+  return check_exp(o->tt == LUA_VTABLE, static_cast<Table *>(o));
 }
 
 inline Proto *gco2p(GCObject *o) {
-  return check_exp(o->tt == LUA_VPROTO, &(cast_u(o))->p);
+  return check_exp(o->tt == LUA_VPROTO, static_cast<Proto *>(o));
 }
 
 inline lua_State *gco2th(GCObject *o) {
-  return check_exp(o->tt == LUA_VTHREAD, &(cast_u(o))->th);
+  return check_exp(o->tt == LUA_VTHREAD, static_cast<lua_State *>(o));
 }
 
 inline UpVal *gco2upv(GCObject *o) {
-  return check_exp(o->tt == LUA_VUPVAL, &(cast_u(o))->upv);
+  return check_exp(o->tt == LUA_VUPVAL, static_cast<UpVal *>(o));
 }
 
 /*
@@ -379,8 +379,8 @@ inline lu_mem gettotalbytes(global_State *g) {
 
 // Threads
 inline void setthvalue(lua_State *L, TValue *obj, lua_State *x) {
-  lua_assert(obj2gco(x)->tt == LUA_VTHREAD);
-  *obj = obj2gco(x);
+  lua_assert(x->tt == LUA_VTHREAD);
+  *obj = static_cast<GCObject *>(x);
   checkliveness(L, obj);
 }
 
@@ -390,7 +390,7 @@ inline void setthvalue2s(lua_State *L, StkId o, lua_State *t) {
 
 // TStrings
 inline void setsvalue(lua_State *L, TValue *obj, TString *x) {
-  *obj = obj2gco(x);
+  *obj = static_cast<GCObject *>(x);
   checkliveness(L, obj);
 }
 
@@ -410,15 +410,15 @@ inline void setpvalue(TValue *o, void *x) {
 }
 
 inline void setuvalue(lua_State *L, TValue *obj, Udata *x) {
-  lua_assert(obj2gco(x)->tt == LUA_VUSERDATA);
-  *obj = obj2gco(x);
+  lua_assert(x->tt == LUA_VUSERDATA);
+  *obj = static_cast<GCObject *>(x);
   checkliveness(L, obj);
 }
 
 // Closure
 inline void setclLvalue(lua_State *L, TValue *obj, LClosure *x) {
-  lua_assert(obj2gco(x)->tt == LUA_VLCL);
-  *obj = obj2gco(x);
+  lua_assert(x->tt == LUA_VLCL);
+  *obj = static_cast<GCObject *>(x);
   checkliveness(L, obj);
 }
 
@@ -431,19 +431,21 @@ inline void setfvalue(TValue *o, lua_CFunction x) {
 }
 
 inline void setclCvalue(lua_State *L, TValue *obj, CClosure *x) {
-  lua_assert(obj2gco(x)->tt == LUA_VCCL);
-  *obj = obj2gco(x);
+  lua_assert(x->tt == LUA_VCCL);
+  *obj = static_cast<GCObject *>(x);
   checkliveness(L, obj);
 }
 
 // Table
 inline void sethvalue(lua_State *L, TValue *obj, Table *x) {
-  lua_assert(obj2gco(x)->tt == LUA_VTABLE);
-  *obj = obj2gco(x);
+  lua_assert(x->tt == LUA_VTABLE);
+  *obj = static_cast<GCObject *>(x);
   checkliveness(L, obj);
 }
 
-inline void sethvalue2s(lua_State *L, StkId o, Table *h) { sethvalue(L, s2v(o), h); }
+inline void sethvalue2s(lua_State *L, StkId o, Table *h) {
+  sethvalue(L, s2v(o), h);
+}
 
 
 LUAI_FUNC void luaE_setdebt (global_State *g, l_mem debt);
