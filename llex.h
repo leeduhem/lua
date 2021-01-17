@@ -169,13 +169,13 @@ private:
   l_noret lexerror(const char *msg, int token);
   void increment_line_number();
 
-  int check_next1(int c);
-  int check_next2(const char *set);
+  bool check_next1(int c);
+  bool check_next2(const char *set);
 
   Token read_numeral();
   size_t skip_sep();
   TString *read_long_string(size_t sep, bool is_string = false);
-  void escape_check(int c, const char *msg);
+  void escape_check(bool c, const char *msg);
 
   int gethexa();
   int readhexaesc();

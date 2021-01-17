@@ -27,6 +27,10 @@
 #include "ltable.h"
 #include "lzio.h"
 
+#include <algorithm>
+#include <iterator>
+#include <array>
+
 /* ORDER RESERVED */
 static const char *const luaX_tokens [] = {
     "and", "break", "do", "else", "elseif",
@@ -54,25 +58,22 @@ inline bool LexState::current_is_newline() { return current == '\n' || current =
 
 inline void LexState::save_and_next() { save(current); next(); }
 
-void LexState::save (int c) {
-  buff->push_back(c);
-}
+void LexState::save (int c) { buff->push_back(c); }
 
 
 const char *LexState::token2str (int token) {
   if (token < FIRST_RESERVED) {  /* single-byte symbols? */
     if (lisprint(token))
       return luaO_pushfstring(L, "'%c'", token);
-    else  /* control character */
-      return luaO_pushfstring(L, "'<\\%d>'", token);
+    /* control character */
+    return luaO_pushfstring(L, "'<\\%d>'", token);
   }
-  else {
-    const char *s = luaX_tokens[token - FIRST_RESERVED];
-    if (token < TK_EOS)  /* fixed format (symbols and reserved words)? */
-      return luaO_pushfstring(L, "'%s'", s);
-    else  /* names, strings, and numerals */
-      return s;
-  }
+
+  const char *s = luaX_tokens[token - FIRST_RESERVED];
+  if (token < TK_EOS)  /* fixed format (symbols and reserved words)? */
+    return luaO_pushfstring(L, "'%s'", s);
+  /* names, strings, and numerals */
+  return s;
 }
 
 
@@ -141,7 +142,7 @@ void LexState::set_input (lua_State *L1, ZIO *z1, TString *source1, int firstcha
   L = L1;
   current = firstchar;
   z = z1;
-  fs = NULL;
+  fs = nullptr;
   linenumber = 1;
   lastline = 1;
   source = source1;
@@ -157,25 +158,25 @@ void LexState::set_input (lua_State *L1, ZIO *z1, TString *source1, int firstcha
 */
 
 
-int LexState::check_next1 (int c) {
+bool LexState::check_next1 (int c) {
   if (current == c) {
     next();
-    return 1;
+    return true;
   }
-  return 0;
+  return false;
 }
 
 
 /*
 ** Check whether current char is in set 'set' (with two chars) and saves it
 */
-int LexState::check_next2 (const char *set) {
+bool LexState::check_next2 (const char *set) {
   lua_assert(set[2] == '\0');
   if (current == set[0] || current == set[1]) {
     save_and_next();
-    return 1;
+    return true;
   }
-  return 0;
+  return false;
 }
 
 
@@ -250,8 +251,8 @@ TString *LexState::read_long_string (size_t sep, bool is_string) {
     switch (current) {
       case EOZ: {  /* error */
         const char *what = (is_string ? "string" : "comment");
-        const char *msg = luaO_pushfstring(L,
-                     "unfinished long %s (starting at line %d)", what, line);
+        const char *msg =
+	  luaO_pushfstring(L, "unfinished long %s (starting at line %d)", what, line);
         lexerror(msg, TK_EOS);
         break;  /* to avoid warnings */
       }
@@ -268,25 +269,22 @@ TString *LexState::read_long_string (size_t sep, bool is_string) {
         if (!is_string) buff->clear();  /* avoid wasting space */
         break;
       }
-      default: {
-        if (is_string) save_and_next();
-        else next();
-      }
+      default:
+	is_string ? save_and_next() : next();
     }
   }
  endloop:
   if (is_string)
     return new_string(buff->data() + sep, buff->size() - 2 * sep);
-
   return nullptr;
 }
 
-void LexState::escape_check(int c, const char *msg) {
-  if (!c) {
-    if (current != EOZ)
-      save_and_next();  /* add current to buffer for error message */
-    lexerror(msg, TK_STRING);
-  }
+void LexState::escape_check(bool c, const char *msg) {
+  if (c) return;
+
+  if (current != EOZ)
+    save_and_next();  /* add current to buffer for error message */
+  lexerror(msg, TK_STRING);
 }
 
 
@@ -310,7 +308,7 @@ unsigned long LexState::readutf8esc () {
   save_and_next();  /* skip 'u' */
   escape_check(current == '{', "missing '{'");
   unsigned long r = gethexa();  /* must have at least one digit */
-  while (cast_void(save_and_next()), lisxdigit(current)) {
+  while (save_and_next(), lisxdigit(current)) {
     i++;
     escape_check(r <= (0x7FFFFFFFu >> 4), "UTF-8 value too large");
     r = (r << 4) + luaO_hexavalue(current);
@@ -323,10 +321,10 @@ unsigned long LexState::readutf8esc () {
 
 
 void LexState::utf8esc () {
-  char buf[UTF8BUFFSZ];
-  int n = luaO_utf8esc(buf, readutf8esc());
-  for (; n > 0; n--)  /* add 'buff' to string */
-    save(buf[UTF8BUFFSZ - n]);
+  std::array<char, UTF8BUFFSZ> buf;
+  int n = luaO_utf8esc(buf.data(), readutf8esc());
+  std::copy(buf.cend() - n, buf.cend(),
+	    std::back_inserter(*buff));
 }
 
 
@@ -349,8 +347,7 @@ TString *LexState::read_string (int del) {
       case EOZ:
         lexerror("unfinished string", TK_EOS);
         break;  /* to avoid warnings */
-      case '\n':
-      case '\r':
+      case '\n': case '\r':
         lexerror("unfinished string", TK_STRING);
         break;  /* to avoid warnings */
       case '\\': {  /* escape sequences */
@@ -375,8 +372,7 @@ TString *LexState::read_string (int del) {
 	    buff->pop_back();  // remove '\\'
             next();  /* skip the 'z' */
             while (lisspace(current)) {
-              if (current_is_newline()) increment_line_number();
-              else next();
+              current_is_newline() ? increment_line_number() : next();
             }
             goto no_save;
           }
