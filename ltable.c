@@ -89,8 +89,8 @@
 #define dummynode		(&dummynode_)
 
 static const Node dummynode_ = {
-  {{nullptr}, LUA_VEMPTY}, // value's value and type
-  {{nullptr}, LUA_VNIL},   // key's value and type
+  {LUA_VEMPTY, {nullptr}}, // value's type and value
+  {LUA_VNIL, {nullptr}},   // key's type and value
   0			   // next
 };
 
@@ -134,26 +134,26 @@ static int l_hashfloat (lua_Number n) {
 ** and value in 'vkl') so that we can call it on keys inserted into
 ** nodes.
 */
-static Node *mainposition (const Table *t, int ktt, const Value *kvl) {
-  switch (withvariant(ktt)) {
+static Node *mainposition (const Table *t, const TValue *k) {
+  switch (withvariant(rawtt(k))) {
     case LUA_VNUMINT:
-      return hashint(t, ivalueraw(*kvl));
+      return hashint(t, ivalueraw(k));
     case LUA_VNUMFLT:
-      return hashmod(t, l_hashfloat(fltvalueraw(*kvl)));
+      return hashmod(t, l_hashfloat(fltvalueraw(k)));
     case LUA_VSHRSTR:
-      return hashstr(t, tsvalueraw(*kvl));
+      return hashstr(t, tsvalueraw(k));
     case LUA_VLNGSTR:
-      return hashpow2(t, luaS_hashlongstr(tsvalueraw(*kvl)));
+      return hashpow2(t, luaS_hashlongstr(tsvalueraw(k)));
     case LUA_VFALSE:
       return hashboolean(t, 0);
     case LUA_VTRUE:
       return hashboolean(t, 1);
     case LUA_VLIGHTUSERDATA:
-      return hashpointer(t, pvalueraw(*kvl));
+      return hashpointer(t, pvalueraw(k));
     case LUA_VLCF:
-      return hashpointer(t, fvalueraw(*kvl));
+      return hashpointer(t, fvalueraw(k));
     default:
-      return hashpointer(t, gcvalueraw(*kvl));
+      return hashpointer(t, gcvalueraw(k));
   }
 }
 
@@ -162,7 +162,7 @@ static Node *mainposition (const Table *t, int ktt, const Value *kvl) {
 ** Returns the main position of an element given as a 'TValue'
 */
 static Node *mainpositionTV (const Table *t, const TValue *key) {
-  return mainposition(t, rawtt(key), valraw(key));
+  return mainposition(t, key);
 }
 
 
@@ -196,15 +196,15 @@ static int equalkey (const TValue *k1, const Node *n2, int deadok) {
     case LUA_VNUMINT:
       return (ivalue(k1) == keyival(n2));
     case LUA_VNUMFLT:
-      return luai_numeq(fltvalue(k1), fltvalueraw(keyval(n2)));
+      return luai_numeq(fltvalue(k1), keyfltvalue(n2));
     case LUA_VLIGHTUSERDATA:
-      return pvalue(k1) == pvalueraw(keyval(n2));
+      return pvalue(k1) == keypvalue(n2);
     case LUA_VLCF:
-      return fvalue(k1) == fvalueraw(keyval(n2));
+      return fvalue(k1) == keyfvalue(n2);
     case ctb(LUA_VLNGSTR):
       return luaS_eqlngstr(tsvalue(k1), keystrval(n2));
     default:
-      return gcvalue(k1) == gcvalueraw(keyval(n2));
+      return gcvalue(k1) == keygcvalue(n2);
   }
 }
 
@@ -639,7 +639,7 @@ TValue *luaH_newkey (lua_State *L, Table *t, const TValue *key) {
       return luaH_set(L, t, key);  /* insert key into grown table */
     }
     lua_assert(!isdummy(t));
-    Node *othern = mainposition(t, keytt(mp), &keyval(mp));
+    Node *othern = mainposition(t, &mp->key);
     if (othern != mp) {  /* is colliding node out of its main position? */
       /* yes; move colliding node into free position */
       while (othern + gnext(othern) != mp)  /* find previous */

@@ -46,32 +46,21 @@ constexpr inline lu_byte makevariant(lu_byte t, lu_byte v) { return t | v << 4; 
 
 
 /*
-** Union of all Lua values
-*/
-union Value {
-  GCObject *gc;    /* collectable objects */
-  void *p;         /* light userdata */
-  lua_CFunction f; /* light C functions */
-  lua_Integer i;   /* integer numbers */
-  lua_Number n;    /* float numbers */
-};
-
-
-/*
 ** Tagged Values. This is the basic representation of values in Lua:
 ** an actual value plus a tag with its type.
 */
 struct TValue {
-  Value value_;
   lu_byte tt_;
+
+  // Union of all Lua values
+  union {
+    GCObject *gc;    /* collectable objects */
+    void *p;         /* light userdata */
+    lua_CFunction f; /* light C functions */
+    lua_Integer i;   /* integer numbers */
+    lua_Number n;    /* float numbers */
+  };
 };
-
-
-inline const Value &val_(const TValue *o) { return o->value_; }
-inline Value &val_(TValue *o) { return o->value_; }
-
-inline const Value *valraw(const TValue *o) { return &val_(o); }
-inline Value *valraw(TValue *o) { return &val_(o); }
 
 
 /* raw type tag of a TValue */
@@ -208,11 +197,11 @@ inline lu_byte iscollectable(const TValue *o) { return rawtt(o) & BIT_ISCOLLECTA
 /* mark a tag as collectable */
 constexpr inline lu_byte ctb(lu_byte t) { return t | BIT_ISCOLLECTABLE; }
 
-inline GCObject *gcvalue(const TValue *o) { return check_exp(iscollectable(o), val_(o).gc); }
-inline GCObject *gcvalueraw(const Value &v) { return v.gc; }
+inline GCObject *gcvalue(const TValue *o) { return check_exp(iscollectable(o), o->gc); }
+inline GCObject *gcvalueraw(const TValue *o) { return o->gc; }
 
 inline void setgcovalue(lua_State *, TValue *o, GCObject *x) {
-  val_(o).gc = x; settt_(o, ctb(x->tt));
+  o->gc = x; settt_(o, ctb(x->tt));
 }
 
 /* Functions for internal tests */
@@ -250,7 +239,7 @@ inline bool ttisthread(const TValue *o) { return checktag(o, ctb(LUA_VTHREAD)); 
 lua_State *gco2th(GCObject *);
 
 inline lua_State *thvalue(const TValue *o) {
-  return check_exp(ttisthread(o), gco2th(val_(o).gc));
+  return check_exp(ttisthread(o), gco2th(o->gc));
 }
 
 /* }================================================================== */
@@ -270,30 +259,29 @@ inline bool ttisnumber(const TValue *o) { return checktype(o, LUA_TNUMBER); }
 inline bool ttisfloat(const TValue *o) { return checktag(o, LUA_VNUMFLT); }
 inline bool ttisinteger(const TValue *o) { return checktag(o, LUA_VNUMINT); }
 
-inline lua_Number fltvalue(const TValue *o) { return check_exp(ttisfloat(o), val_(o).n); }
-inline lua_Integer ivalue(const TValue *o) { return check_exp(ttisinteger(o), val_(o).i); }
+inline lua_Number fltvalue(const TValue *o) { return check_exp(ttisfloat(o), o->n); }
+inline lua_Number fltvalueraw(const TValue *o) { return o->n; }
+inline lua_Integer ivalue(const TValue *o) { return check_exp(ttisinteger(o), o->i); }
+inline lua_Integer ivalueraw(const TValue *o) { return o->i; }
 inline lua_Number nvalue(const TValue *o) {
   return check_exp(ttisnumber(o),
 		   ttisinteger(o) ? ivalue(o) : fltvalue(o));
 }
 
-inline const lua_Number &fltvalueraw(const Value &v) { return v.n; }
-inline const lua_Integer &ivalueraw(const Value &v) { return v.i; }
-
 inline void setfltvalue(TValue *o, const lua_Number x) {
-  val_(o).n = x; settt_(o, LUA_VNUMFLT);
+  o->n = x; settt_(o, LUA_VNUMFLT);
 }
 
 inline void chgfltvalue(TValue *o, const lua_Number x) {
-  lua_assert(ttisfloat(o)); val_(o).n = x;
+  lua_assert(ttisfloat(o)); o->n = x;
 }
 
 inline void setivalue(TValue *o, const lua_Integer x) {
-  val_(o).i = x; settt_(o, LUA_VNUMINT);
+  o->i = x; settt_(o, LUA_VNUMINT);
 }
 
 inline void chgivalue(TValue *o, const lua_Integer x) {
-  lua_assert(ttisinteger(o)); val_(o).i = x;
+  lua_assert(ttisinteger(o)); o->i = x;
 }
 
 /* }================================================================== */
@@ -339,11 +327,11 @@ TString *gco2ts(GCObject *);
 TString *gco2ts(const GCObject *);
 
 inline TString *tsvalue(const TValue *o) {
-  return check_exp(ttisstring(o), gco2ts(val_(o).gc));
+  return check_exp(ttisstring(o), gco2ts(o->gc));
 }
-
-inline TString *tsvalueraw(Value &v) { return gco2ts(v.gc); }
-inline TString *tsvalueraw(const Value &v) { return gco2ts(v.gc); }
+inline TString *tsvalueraw(const TValue *o) {
+  return gco2ts(o->gc);
+}
 
 /* get the actual string (array of bytes) from a Lua value */
 inline const char *svalue(const TValue *o) { return getstr(tsvalue(o)); }
@@ -436,10 +424,10 @@ inline size_t sizeudata(unsigned short nuv, size_t nb) { return udatamemoffset(n
 
 Udata *gco2u(GCObject *);
 
-inline Udata *uvalue(const TValue *o) { return check_exp(ttisfulluserdata(o), gco2u(val_(o).gc)); }
+inline Udata *uvalue(const TValue *o) { return check_exp(ttisfulluserdata(o), gco2u(o->gc)); }
 
-inline void *pvalue(const TValue *o) { return check_exp(ttislightuserdata(o), val_(o).p); }
-inline void *pvalueraw(const Value &v) { return v.p; }
+inline void *pvalue(const TValue *o) { return check_exp(ttislightuserdata(o), o->p); }
+inline void *pvalueraw(const TValue *o) { return o->p; }
 
 /* }================================================================== */
 
@@ -604,12 +592,12 @@ Closure *gco2cl(GCObject *);
 LClosure *gco2lcl(GCObject *);
 CClosure *gco2ccl(GCObject *);
 
-inline Closure *clvalue(const TValue *o) { return check_exp(ttisclosure(o), gco2cl(val_(o).gc)); }
-inline LClosure* clLvalue(const TValue *o) { return check_exp(ttisLclosure(o), gco2lcl(val_(o).gc)); }
-inline CClosure *clCvalue(const TValue *o) { return check_exp(ttisCclosure(o), gco2ccl(val_(o).gc)); }
+inline Closure *clvalue(const TValue *o) { return check_exp(ttisclosure(o), gco2cl(o->gc)); }
+inline LClosure* clLvalue(const TValue *o) { return check_exp(ttisLclosure(o), gco2lcl(o->gc)); }
+inline CClosure *clCvalue(const TValue *o) { return check_exp(ttisCclosure(o), gco2ccl(o->gc)); }
 
-inline lua_CFunction fvalue(const TValue *o) { return check_exp(ttislcf(o), val_(o).f); }
-inline lua_CFunction fvalueraw(const Value &v) { return v.f; }
+inline lua_CFunction fvalue(const TValue *o) { return check_exp(ttislcf(o), o->f); }
+inline lua_CFunction fvalueraw(const TValue *o) { return o->f; }
 
 inline Proto *getproto(const TValue *o) { return clLvalue(o)->p; }
 
@@ -681,21 +669,22 @@ inline void setnorealasize(Table *t) { t->flags |= BITRAS; }
 */
 inline const lu_byte &keytt(const Node *node) { return node->key.tt_; }
 inline lu_byte &keytt(Node *node) { return node->key.tt_; }
-inline const Value &keyval(const Node *node) { return node->key.value_; }
-inline Value &keyval(Node *node) { return node->key.value_; }
 
 inline bool keyisnil(const Node *node) { return keytt(node) == LUA_TNIL; }
 inline bool keyisinteger(const Node *node) { return keytt(node) == LUA_VNUMINT; }
-inline lua_Integer keyival(Node *node) { return keyval(node).i; }
-inline lua_Integer keyival(const Node *node) { return keyval(node).i; }
+inline lua_Integer keyival(const Node *node) { return node->key.i; }
 inline bool keyisshrstr(const Node *node) { return keytt(node) == ctb(LUA_VSHRSTR); }
-inline TString *keystrval(const Node *node) { return gco2ts(keyval(node).gc); }
+inline TString *keystrval(const Node *node) { return gco2ts(node->key.gc); }
+inline lua_Number keyfltvalue(const Node *node) { return node->key.n; }
+inline void *keypvalue(const Node *node) { return node->key.p; }
+inline lua_CFunction keyfvalue(const Node *node) { return node->key.f; }
+inline GCObject *keygcvalue(const Node *node) { return node->key.gc; }
 
 inline void setnilkey(Node *node) { keytt(node) = LUA_TNIL; }
 
 inline bool keyiscollectable(const Node *node) { return keytt(node) & BIT_ISCOLLECTABLE; }
 
-inline GCObject *gckey(const Node *node) { return keyval(node).gc; }
+inline GCObject *gckey(const Node *node) { return node->key.gc; }
 inline GCObject *gckeyN(const Node *node) { return keyiscollectable(node) ? gckey(node) : nullptr; }
 
 /*
@@ -709,14 +698,14 @@ inline bool keyisdead(const Node *node) { return keytt(node) == LUA_TDEADKEY; }
 
 Table *gco2t(GCObject *);
 
-inline Table *hvalue(const TValue *o) { return check_exp(ttistable(o), gco2t(val_(o).gc)); }
+inline Table *hvalue(const TValue *o) { return check_exp(ttistable(o), gco2t(o->gc)); }
 
 /* }================================================================== */
 
 
 /* main function to copy values (from 'obj2' to 'obj1') */
 inline void setobj(lua_State *L, TValue *obj1, const TValue *obj2) {
-  obj1->value_ = obj2->value_; settt_(obj1, obj2->tt_);
+  *obj1 = *obj2;
   checkliveness(L, obj1); lua_assert(!isnonstrictnil(obj1));
 }
 
