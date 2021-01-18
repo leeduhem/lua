@@ -251,7 +251,6 @@ Proto *luaF_newproto (lua_State *L) {
 
 void luaF_freeproto (lua_State *L, Proto *f) {
   luaM_freearray(L, f->code, f->sizecode);
-  luaM_freearray(L, f->p, f->sizep);
   luaM_freearray(L, f->k, f->sizek);
   f->~Proto();
   luaM_free(L, f);

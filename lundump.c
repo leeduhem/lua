@@ -193,10 +193,7 @@ static void loadConstants (LoadState *S, Proto *f) {
 
 static void loadProtos (LoadState *S, Proto *f) {
   int n = loadInt(S);
-  f->p = luaM_newvectorchecked(S->L, n, Proto *);
-  f->sizep = n;
-  for (int i = 0; i < n; i++)
-    f->p[i] = nullptr;
+  f->p.resize(n);
   for (int i = 0; i < n; i++) {
     f->p[i] = luaF_newproto(S->L);
     luaC_objbarrier(S->L, f, f->p[i]);

@@ -134,10 +134,10 @@ static void dumpConstants (DumpState *D, const Proto *f) {
 
 
 static void dumpProtos (DumpState *D, const Proto *f) {
-  int n = f->sizep;
+  int n = f->p.size();
   dumpInt(D, n);
-  for (int i = 0; i < n; i++)
-    dumpFunction(D, f->p[i], f->source);
+  for (auto &p : f->p)
+    dumpFunction(D, p, f->source);
 }
 
 

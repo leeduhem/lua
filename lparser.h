@@ -153,7 +153,6 @@ struct FuncState {
   int lasttarget = 0;   /* 'label' of last 'jump label' */
   int previousline = 0;  /* last line that was saved in 'lineinfo' */
   int nk = 0;  /* number of elements in 'k' */
-  int np = 0;  /* number of elements in 'p' */
   int nabslineinfo = 0;  /* number of elements in 'abslineinfo' */
   int firstlocal = 0;  /* index of first local var (in Dyndata array) */
   int firstlabel = 0;  /* index of first label (in 'dyd->label->arr') */

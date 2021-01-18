@@ -614,14 +614,9 @@ static Proto *addprototype (LexState *ls) {
   lua_State *L = ls->L;
   FuncState *fs = ls->fs;
   Proto *f = fs->f;  /* prototype of current function */
-  if (fs->np >= f->sizep) {
-    int oldsize = f->sizep;
-    luaM_growvector(L, f->p, fs->np, f->sizep, Proto *, MAXARG_Bx, "functions");
-    while (oldsize < f->sizep)
-      f->p[oldsize++] = nullptr;
-  }
-  Proto *clp = f->p[fs->np++] = luaF_newproto(L);
+  Proto *clp = luaF_newproto(L);
   luaC_objbarrier(L, f, clp);
+  f->p.push_back(clp);
   return clp;
 }
 
@@ -635,7 +630,7 @@ static Proto *addprototype (LexState *ls) {
 */
 static void codeclosure (LexState *ls, expdesc *v) {
   FuncState *fs = ls->fs->prev;
-  init_exp(v, VRELOC, luaK_codeABx(fs, OP_CLOSURE, 0, fs->np - 1));
+  init_exp(v, VRELOC, luaK_codeABx(fs, OP_CLOSURE, 0, fs->f->p.size() - 1));
   luaK_exp2nextreg(fs, v);  /* fix it at the last register */
 }
 
@@ -666,7 +661,6 @@ static void close_func (LexState *ls) {
   luaK_finish(fs);
   luaM_shrinkvector(L, f->code, f->sizecode, fs->pc, Instruction);
   luaM_shrinkvector(L, f->k, f->sizek, fs->nk, TValue);
-  luaM_shrinkvector(L, f->p, f->sizep, fs->np, Proto *);
   ls->fs = fs->prev;
   luaC_checkGC(L);
 }
