@@ -315,7 +315,7 @@ static void removevars (FuncState *fs, int tolevel) {
 
 
 static int newupvalue (FuncState *fs, TString *name, expdesc *v) {
-  checklimit(fs, fs->nups + 1, MAXUPVAL, "upvalues");
+  checklimit(fs, fs->f->upvalues.size() + 1, MAXUPVAL, "upvalues");
 
   Proto *f = fs->f;
   FuncState *prev = fs->prev;
@@ -328,7 +328,7 @@ static int newupvalue (FuncState *fs, TString *name, expdesc *v) {
     lua_assert(eqstr(name, prev->f->upvalues[v->u.info].name));
   }
   luaC_objbarrier(fs->ls->L, fs->f, name);
-  return fs->nups++;
+  return f->upvalues.size() - 1;
 }
 
 
@@ -385,7 +385,6 @@ static void singlevaraux (FuncState *fs, TString *n, expdesc *var, int base) {
   }
 
   // not found as local at current level; try upvalues
-  lua_assert(fs->nups == fs->f->upvalues.size());
   auto &ups = fs->f->upvalues;
   auto it = std::find_if(ups.cbegin(), ups.cend(),
 			 [n] (const Upvaldesc &u) { return eqstr(u.name, n); });
@@ -1819,7 +1818,6 @@ static void mainfunc (LexState *ls, FuncState *fs) {
   open_func(ls, fs, &bl);
   setvararg(fs, 0);  /* main function is always declared vararg */
   f->upvalues.emplace_back(ls->envn, 1, 0, VDKREG);  // ...set environment upvalue
-  fs->nups++;
   luaC_objbarrier(ls->L, fs->f, ls->envn);
   ls->next_token();  /* read first token */
   statlist(ls);  /* parse main body */
@@ -1842,7 +1840,7 @@ LClosure *luaY_parser (lua_State *L, ZIO *z, Mbuffer *buff,
   luaC_objbarrier(L, funcstate.f, funcstate.f->source);
   LexState lexstate{L, h, z, buff, dyd, funcstate.f->source, firstchar};
   mainfunc(&lexstate, &funcstate);
-  lua_assert(!funcstate.prev && funcstate.nups == 1 && !lexstate.fs);
+  lua_assert(!funcstate.prev && funcstate.f->upvalues.size() == 1 && !lexstate.fs);
   // all scopes should be correctly finished
   lua_assert(dyd->actvar.size() == 0 && dyd->gt.size() == 0 && dyd->label.size() == 0);
   L->top--; // remove scanner's table

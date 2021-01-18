@@ -157,7 +157,6 @@ struct FuncState {
   int firstlocal = 0;  /* index of first local var (in Dyndata array) */
   int firstlabel = 0;  /* index of first label (in 'dyd->label->arr') */
   lu_byte nactvar = 0;  /* number of active local variables */
-  lu_byte nups = 0;  /* number of upvalues */
   lu_byte freereg = 0;  /* first free register */
   lu_byte iwthabs = 0;  /* instructions issued since last absolute line info */
   lu_byte needclose = 0;  /* function needs to close upvalues when returning */
