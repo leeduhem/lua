@@ -100,6 +100,11 @@ struct Vardesc {
   lu_byte sidx;  // index of the variable in the stack
   short pidx;    // index of the variable in the Proto's 'locvars' array
   TString *name; // variable name
+
+  Vardesc() = default;
+  Vardesc(TString *name1, int kind1)
+    : kind(static_cast<lu_byte>(kind1)), name(name1)
+  {}
 };
 
 

@@ -37,7 +37,7 @@
 constexpr int MAXVARS =	200;
 
 
-inline bool hasmultret(expkind k) { return (k == VCALL || k == VVARARG); }
+inline bool hasmultret(expkind k) { return k == VCALL || k == VVARARG; }
 
 
 /* because all strings are unified by the scanner, the parser
@@ -73,7 +73,7 @@ static l_noret error_expected (LexState *ls, int token) {
 static l_noret errorlimit (FuncState *fs, int limit, const char *what) {
   lua_State *L = fs->ls->L;
   int line = fs->f->linedefined;
-  const char *where = (line == 0)
+  const char *where = !line
                       ? "main function"
                       : luaO_pushfstring(L, "function at line %d", line);
   const char *msg = luaO_pushfstring(L, "too many %s (limit is %d) in %s",
@@ -90,12 +90,12 @@ static void checklimit (FuncState *fs, int v, int l, const char *what) {
 /*
 ** Test whether next token is 'c'; if so, skip it.
 */
-static int testnext (LexState *ls, int c) {
+static bool testnext (LexState *ls, int c) {
   if (ls->t == c) {
     ls->next_token();
-    return 1;
+    return true;
   }
-  return 0;
+  return false;
 }
 
 
@@ -131,11 +131,10 @@ static void check_match (LexState *ls, int what, int who, int where) {
 
   if (where == ls->linenumber)  /* all in the same line? */
     error_expected(ls, what);  /* do not need a complex message */
-  else {
+  else
     ls->syntax_error(luaO_pushfstring(ls->L,
 				      "%s expected (to close %s at line %d)",
 				      ls->token2str(what), ls->token2str(who), where));
-  }
 }
 
 
@@ -184,10 +183,7 @@ static int new_localvar (LexState *ls, TString *name) {
   FuncState *fs = ls->fs;
   Dyndata *dyd = ls->dyd;
   checklimit(fs, dyd->actvar.size() + 1 - fs->firstlocal, MAXVARS, "local variables");
-  dyd->actvar.resize(dyd->actvar.size() + 1);
-  Vardesc &var = dyd->actvar.back();
-  var.kind = VDKREG;  // default
-  var.name = name;
+  dyd->actvar.emplace_back(name, VDKREG);
   return dyd->actvar.size() - 1 - fs->firstlocal;
 }
 
@@ -282,8 +278,8 @@ static void check_readonly (LexState *ls, expdesc *e) {
       return;  /* other cases cannot be read-only */
   }
   if (varname) {
-    const char *msg = luaO_pushfstring(ls->L,
-       "attempt to assign to const variable '%s'", getstr(varname));
+    const char *msg =
+      luaO_pushfstring(ls->L, "attempt to assign to const variable '%s'", getstr(varname));
     luaK_semerror(ls, msg);  /* error */
   }
 }
@@ -317,17 +313,6 @@ static void removevars (FuncState *fs, int tolevel) {
   }
 }
 
-
-/*
-** Search the upvalues of the function 'fs' for one with the given 'name'.
-*/
-static int searchupvalue (FuncState *fs, TString *name) {
-  auto &up = fs->f->upvalues;
-  for (int i = 0; i < fs->nups; i++) {
-    if (eqstr(up[i].name, name)) return i;
-  }
-  return -1;  /* not found */
-}
 
 static int newupvalue (FuncState *fs, TString *name, expdesc *v) {
   checklimit(fs, fs->nups + 1, MAXUPVAL, "upvalues");
@@ -387,26 +372,35 @@ static void markupval (FuncState *fs, int level) {
 ** 'var' as 'void' as a flag.
 */
 static void singlevaraux (FuncState *fs, TString *n, expdesc *var, int base) {
-  if (fs == nullptr)  /* no more levels? */
+  if (!fs) { // no more levels?
     init_exp(var, VVOID, 0);  /* default is global */
-  else {
-    int v = searchvar(fs, n, var);  /* look up locals at current level */
-    if (v >= 0) {  /* found? */
-      if (v == VLOCAL && !base)
-        markupval(fs, var->u.var.vidx);  /* local will be used as an upval */
-    }
-    else {  /* not found as local at current level; try upvalues */
-      int idx = searchupvalue(fs, n);  /* try existing upvalues */
-      if (idx < 0) {  /* not found? */
-        singlevaraux(fs->prev, n, var, 0);  /* try upper levels */
-        if (var->k == VLOCAL || var->k == VUPVAL)  /* local or upvalue? */
-          idx  = newupvalue(fs, n, var);  /* will be a new upvalue */
-        else  /* it is a global or a constant */
-          return;  /* don't need to do anything at this level */
-      }
-      init_exp(var, VUPVAL, idx);  /* new or old upvalue */
-    }
+    return;
   }
+
+  int v = searchvar(fs, n, var);  /* look up locals at current level */
+  if (v >= 0) {  /* found? */
+    if (v == VLOCAL && !base)
+      markupval(fs, var->u.var.vidx);  /* local will be used as an upval */
+    return;
+  }
+
+  // not found as local at current level; try upvalues
+  lua_assert(fs->nups == fs->f->upvalues.size());
+  auto &ups = fs->f->upvalues;
+  auto it = std::find_if(ups.cbegin(), ups.cend(),
+			 [n] (const Upvaldesc &u) { return eqstr(u.name, n); });
+  if (it != ups.cend()) { // found?
+    init_exp(var, VUPVAL, it - ups.cbegin()); // old upvalue
+    return;
+  }
+  // not found?
+  singlevaraux(fs->prev, n, var, 0);  /* try upper levels */
+  if (var->k == VLOCAL || var->k == VUPVAL) { // local or upvalue?
+    int idx  = newupvalue(fs, n, var); // will be a new upvalue
+    init_exp(var, VUPVAL, idx);
+  }
+  // it is a global or a constant
+  // don't need to do anything at this level
 }
 
 
@@ -489,20 +483,6 @@ static void solvegoto (LexState *ls, int g, Labeldesc &label) {
 
 
 /*
-** Search for an active label with the given name.
-*/
-static Labeldesc *findlabel (LexState *ls, TString *name) {
-  Dyndata *dyd = ls->dyd;
-  /* check labels in current function for a match */
-  auto it = std::find_if(dyd->label.begin() + ls->fs->firstlabel, dyd->label.end(),
-			 [name] (const Labeldesc &l) { return eqstr(l.name, name); });
-  if (it != dyd->label.end())
-    return &*it;
-  return nullptr;  /* label not found */
-}
-
-
-/*
 ** Adds a new label/goto in the corresponding list.
 */
 static int newlabelentry (LexState *ls, Labellist &l, TString *name, int line, int pc) {
@@ -521,7 +501,7 @@ static int newgotoentry (LexState *ls, TString *name, int line, int pc) {
 ** pending gotos in current block and solves them. Return true
 ** if any of the goto's need to close upvalues.
 */
-static int solvegotos (LexState *ls, Labeldesc &lb) {
+static bool solvegotos (LexState *ls, Labeldesc &lb) {
   Labellist &gl = ls->dyd->gt;
   auto bl = ls->fs->blocks.back();
   int needsclose = 0;
@@ -544,7 +524,7 @@ static int solvegotos (LexState *ls, Labeldesc &lb) {
 ** a close instruction if necessary.
 ** Returns true iff it added a close instruction.
 */
-static int createlabel (LexState *ls, TString *name, int line, int last) {
+static bool createlabel (LexState *ls, TString *name, int line, int last) {
   FuncState *fs = ls->fs;
   Labellist &ll = ls->dyd->label;
   int l = newlabelentry(ls, ll, name, line, luaK_getlabel(fs));
@@ -554,9 +534,9 @@ static int createlabel (LexState *ls, TString *name, int line, int last) {
   }
   if (solvegotos(ls, ll[l])) {  /* need close? */
     luaK_codeABC(fs, OP_CLOSE, luaY_nvarstack(fs), 0, 0);
-    return 1;
+    return true;
   }
-  return 0;
+  return false;
 }
 
 
@@ -564,9 +544,9 @@ static int createlabel (LexState *ls, TString *name, int line, int last) {
 ** Adjust pending gotos to outer level of a block.
 */
 static void movegotosout (FuncState *fs, BlockCnt *bl) {
-  Labellist *gl = &fs->ls->dyd->gt;
+  Labellist &gl = fs->ls->dyd->gt;
   /* correct pending gotos to current block */
-  std::for_each(gl->begin() + bl->firstgoto, gl->end(),
+  std::for_each(gl.begin() + bl->firstgoto, gl.end(),
 		[fs, bl] (Labeldesc &gt) {
 		  // leaving a variable scope?
 		  if (stacklevel(fs, gt.nactvar) > stacklevel(fs, bl->nactvar))
@@ -621,10 +601,8 @@ static void leaveblock (FuncState *fs) {
   ls->dyd->label.resize(bl->firstlabel);  // remove local labels
   if (is_inner_block)
     movegotosout(fs, bl);  /* update pending gotos to outer block */
-  else {
-    if (cast_sizet(bl->firstgoto) < ls->dyd->gt.size())  /* pending gotos in outer block? */
-      undefgoto(ls, ls->dyd->gt[bl->firstgoto]);  /* error */
-  }
+  else if (cast_sizet(bl->firstgoto) < ls->dyd->gt.size())  /* pending gotos in outer block? */
+    undefgoto(ls, ls->dyd->gt[bl->firstgoto]);  /* error */
   fs->blocks.pop_back();
 }
 
@@ -1331,17 +1309,21 @@ static void gotostat (LexState *ls) {
   FuncState *fs = ls->fs;
   int line = ls->linenumber;
   TString *name = str_checkname(ls);  /* label's name */
-  Labeldesc *lb = findlabel(ls, name);
-  if (lb == nullptr)  /* no label? */
-    /* forward jump; will be resolved when the label is declared */
-    newgotoentry(ls, name, line, luaK_jump(fs));
-  else {  /* found a label */
-    /* backward jump; will be resolved here */
+  auto &labels = ls->dyd->label;
+  // check labels in current function for a match
+  auto lb = std::find_if(labels.cbegin() + fs->firstlabel, labels.cend(),
+			 [name] (const Labeldesc &l) { return eqstr(l.name, name); });
+  if (lb != labels.cend()) { // found a label
+    // backward jump; will be resolved here
     int lblevel = stacklevel(fs, lb->nactvar);  /* label level */
     if (luaY_nvarstack(fs) > lblevel)  /* leaving the scope of a variable? */
       luaK_codeABC(fs, OP_CLOSE, lblevel, 0, 0);
     /* create jump and link it to the label */
     luaK_patchlist(fs, luaK_jump(fs), lb->pc);
+  }
+  else { // no label?
+    // forward jump; will be resolved when the label is declared
+    newgotoentry(ls, name, line, luaK_jump(fs));
   }
 }
 
@@ -1361,12 +1343,17 @@ static void breakstat (LexState *ls) {
 ** Check whether there is already a label with the given 'name'.
 */
 static void checkrepeated (LexState *ls, TString *name) {
-  Labeldesc *lb = findlabel(ls, name);
-  if (unlikely(lb != nullptr)) {  /* already defined? */
-    const char *msg = "label '%s' already defined on line %d";
-    msg = luaO_pushfstring(ls->L, msg, getstr(name), lb->line);
-    luaK_semerror(ls, msg);  /* error */
-  }
+  auto &labels = ls->dyd->label;
+  // check labels in current function for a match
+  auto lb = std::find_if(labels.cbegin() + ls->fs->firstlabel, labels.cend(),
+			 [name] (const Labeldesc &l) { return eqstr(l.name, name); });
+  if (likely(lb == labels.cend()))
+    return;
+
+  // already defined?
+  const char *msg = "label '%s' already defined on line %d";
+  msg = luaO_pushfstring(ls->L, msg, getstr(name), lb->line);
+  luaK_semerror(ls, msg);  /* error */
 }
 
 
