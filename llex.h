@@ -152,7 +152,14 @@ struct LexState {
   TString *envn;  /* environment variable name */
 
 public:
-  void set_input (lua_State *L, ZIO *z, TString *source, int firstchar);
+  LexState() = default;
+  LexState(lua_State *L1, Table *h1, ZIO *z1, Mbuffer *buff1, Dyndata *dyd1, TString *source1, int firstchar1)
+    : current(firstchar1), linenumber(1), lastline(1)
+    , t{Token(0)}, lookahead{Token(TK_EOS)}
+    , fs(nullptr), L(L1), z(z1), buff(buff1), h(h1), dyd(dyd1)
+    , source(source1) , envn(luaS_newliteral(L, LUA_ENV))
+  {}
+
   TString *new_string (const char *str, size_t l);
   void next_token ();
   int lookahead_token ();

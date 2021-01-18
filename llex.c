@@ -136,21 +136,6 @@ void LexState::increment_line_number () {
 }
 
 
-void LexState::set_input (lua_State *L1, ZIO *z1, TString *source1, int firstchar) {
-  t = Token(0);
-  lookahead = Token(TK_EOS);  /* no look-ahead token */
-  L = L1;
-  current = firstchar;
-  z = z1;
-  fs = nullptr;
-  linenumber = 1;
-  lastline = 1;
-  source = source1;
-  envn = luaS_newliteral(L, LUA_ENV);  /* get env name */
-}
-
-
-
 /*
 ** =======================================================
 ** LEXICAL ANALYZER
