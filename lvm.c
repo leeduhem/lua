@@ -1020,11 +1020,11 @@ inline int l_gei(lua_Integer a, lua_Integer b) { return a >= b; }
 #define RA(i)	(base+GETARG_A(i))
 #define RB(i)	(base+GETARG_B(i))
 #define vRB(i)	s2v(RB(i))
-#define KB(i)	(k+GETARG_B(i))
+#define KB(i)   (&k[GETARG_B(i)])
 #define RC(i)	(base+GETARG_C(i))
 #define vRC(i)	s2v(RC(i))
-#define KC(i)	(k+GETARG_C(i))
-#define RKC(i)	((TESTARG_k(i)) ? k + GETARG_C(i) : s2v(base + GETARG_C(i)))
+#define KC(i)	(&k[GETARG_C(i)])
+#define RKC(i)	((TESTARG_k(i)) ? &k[GETARG_C(i)] : s2v(base + GETARG_C(i)))
 
 
 
@@ -1106,7 +1106,6 @@ inline int l_gei(lua_Integer a, lua_Integer b) { return a >= b; }
 
 void luaV_execute (lua_State *L, CallInfo *ci) {
   LClosure *cl;
-  TValue *k;
   StkId base;
   const Instruction *pc;
   int trap;
@@ -1117,7 +1116,7 @@ void luaV_execute (lua_State *L, CallInfo *ci) {
   trap = L->hookmask;
  returning:  /* trap already set */
   cl = clLvalue(s2v(ci->func));
-  k = cl->p->k;
+  auto &k = cl->p->k;
   pc = ci->u.l.savedpc;
   if (trap) {
     if (pc == cl->p->code) {  /* first instruction (not resuming)? */
@@ -1154,14 +1153,13 @@ void luaV_execute (lua_State *L, CallInfo *ci) {
         vmbreak;
       }
       vmcase(OP_LOADK) {
-        TValue *rb = k + GETARG_Bx(i);
-        setobj2s(L, ra, rb);
+	TValue &rb = k[GETARG_Bx(i)];
+        setobj2s(L, ra, &rb);
         vmbreak;
       }
       vmcase(OP_LOADKX) {
-        TValue *rb;
-        rb = k + GETARG_Ax(*pc); pc++;
-        setobj2s(L, ra, rb);
+        TValue &rb = k[GETARG_Ax(*pc)]; pc++;
+        setobj2s(L, ra, &rb);
         vmbreak;
       }
       vmcase(OP_LOADFALSE) {

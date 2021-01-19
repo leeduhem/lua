@@ -368,9 +368,9 @@ static void checkudata (global_State *g, Udata *u) {
 static void checkproto (global_State *g, Proto *f) {
   GCObject *fgc = obj2gco(f);
   checkobjref(g, fgc, f->source);
-  for (int i=0; i<f->sizek; i++) {
-    if (ttisstring(f->k + i))
-      checkobjref(g, fgc, tsvalue(f->k + i));
+  for (auto &k : f->k) {
+    if (ttisstring(&k))
+      checkobjref(g, fgc, tsvalue(&k));
   }
   for (auto &v : f->upvalues)
     checkobjref(g, fgc, v.name);
@@ -728,9 +728,9 @@ static int listk (lua_State *L) {
   luaL_argcheck(L, lua_isfunction(L, 1) && !lua_iscfunction(L, 1),
                  1, "Lua function expected");
   Proto *p = getproto(obj_at(L, 1));
-  lua_createtable(L, p->sizek, 0);
-  for (int i=0; i<p->sizek; i++) {
-    pushobject(L, p->k+i);
+  lua_createtable(L, p->k.size(), 0);
+  for (size_t i = 0; i < p->k.size(); ++i) {
+    pushobject(L, &p->k[i]);
     lua_rawseti(L, -2, i+1);
   }
   return 1;

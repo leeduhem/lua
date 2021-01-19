@@ -158,12 +158,9 @@ static void loadFunction(LoadState *S, Proto *f, TString *psource);
 
 static void loadConstants (LoadState *S, Proto *f) {
   int n = loadInt(S);
-  f->k = luaM_newvectorchecked(S->L, n, TValue);
-  f->sizek = n;
-  for (int i = 0; i < n; i++)
-    setnilvalue(&f->k[i]);
-  for (int i = 0; i < n; i++) {
-    TValue *o = &f->k[i];
+  f->k.resize(n);
+  for (auto &k : f->k) {
+    TValue *o = &k;
     int t = loadByte(S);
     switch (t) {
       case LUA_VNIL:

@@ -570,15 +570,15 @@ static int traverseudata (global_State *g, Udata *u) {
 */
 static int traverseproto (global_State *g, Proto *f) {
   markobjectN(g, f->source);
-  for (int i = 0; i < f->sizek; i++)  /* mark literals */
-    markvalue(g, &f->k[i]);
+  for (auto &k : f->k) // mark literals
+    markvalue(g, &k);
   for (auto &v : f->upvalues)  // mark upvalue names
     markobjectN(g, v.name);
   for (auto &p : f->p) // mark nested protos
     markobjectN(g, p);
   for (auto &v : f->locvars)
     markobjectN(g, v.varname);  // mark local-variable names
-  return 1 + f->sizek + f->upvalues.size() + f->p.size() + f->locvars.size();
+  return 1 + f->k.size() + f->upvalues.size() + f->p.size() + f->locvars.size();
 }
 
 

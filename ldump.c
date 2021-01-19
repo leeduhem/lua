@@ -109,7 +109,7 @@ static void dumpCode (DumpState *D, const Proto *f) {
 static void dumpFunction(DumpState *D, const Proto *f, TString *psource);
 
 static void dumpConstants (DumpState *D, const Proto *f) {
-  int n = f->sizek;
+  int n = cast_int(f->k.size());
   dumpInt(D, n);
   for (int i = 0; i < n; i++) {
     const TValue *o = &f->k[i];

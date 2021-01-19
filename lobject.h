@@ -579,11 +579,11 @@ struct Proto : public GCObject {
   lu_byte numparams = 0;  /* number of fixed (named) parameters */
   lu_byte is_vararg = 0;
   lu_byte maxstacksize = 0;  /* number of registers needed by this function */
-  int sizek = 0;  /* size of 'k' */
   int sizecode = 0;
   int linedefined = 0;  /* debug information  */
   int lastlinedefined = 0;  /* debug information  */
-  TValue *k = nullptr;  /* constants used by the function */
+  // constants used by the function
+  std::vector<TValue, lua::allocator<TValue>> k;
   Instruction *code = nullptr;  /* opcodes */
   std::vector<Proto *> p; // functions defined inside the function
   // upvalue information
@@ -598,6 +598,7 @@ struct Proto : public GCObject {
 
   Proto(lua_State *L, lu_byte tag)
     : GCObject(G(L), tag)
+    , k(lua::allocator<TValue>(L))
     , upvalues(lua::allocator<Upvaldesc>(L))
     , lineinfo(lua::allocator<ls_byte>(L))
   {}

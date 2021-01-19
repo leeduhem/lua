@@ -536,22 +536,18 @@ static int addk (FuncState *fs, TValue *key, TValue *v) {
   if (ttisinteger(idx)) {  /* is there an index there? */
     int k = cast_int(ivalue(idx));
     /* correct value? (warning: must distinguish floats from integers!) */
-    if (k < fs->nk && ttypetag(&f->k[k]) == ttypetag(v) &&
-                      luaV_rawequalobj(&f->k[k], v))
+    if (cast_sizet(k) < f->k.size() && ttypetag(&f->k[k]) == ttypetag(v) &&
+	luaV_rawequalobj(&f->k[k], v))
       return k;  /* reuse index */
   }
-  /* constant not found; create a new entry */
-  int oldsize = f->sizek;
-  int k = fs->nk;
-  /* numerical value does not need GC barrier;
-     table has no metatable, so it does not need to invalidate cache */
-  setivalue(idx, k);
-  luaM_growvector(L, f->k, k, f->sizek, TValue, MAXARG_Ax, "constants");
-  while (oldsize < f->sizek) setnilvalue(&f->k[oldsize++]);
-  setobj(L, &f->k[k], v);
-  fs->nk++;
+  // constant not found; create a new entry
+  // numerical value does not need GC barrier;
+  // table has no metatable, so it does not need to invalidate cache
+  setivalue(idx, f->k.size());
+  f->k.resize(f->k.size() + 1);
+  setobj(L, &f->k.back(), v);
   luaC_barrier(L, f, v);
-  return k;
+  return f->k.size() - 1;
 }
 
 

@@ -421,7 +421,7 @@ static const char *getobjname (const Proto *p, int lastpc, int reg, const char *
 ** Find a "name" for the constant 'c'.
 */
 static void kname (const Proto *p, int c, const char **name) {
-  TValue *kvalue = &p->k[c];
+  const TValue *kvalue = &p->k[c];
   *name = ttisstring(kvalue) ? svalue(kvalue) : "?";
 }
 
