@@ -590,9 +590,9 @@ struct Proto : public GCObject {
   std::vector<Upvaldesc, lua::allocator<Upvaldesc>> upvalues;
   // information about source lines (debug information)
   std::vector<ls_byte, lua::allocator<ls_byte>> lineinfo;
-  std::vector<AbsLineInfo> abslineinfo;  // idem
+  std::vector<AbsLineInfo, lua::allocator<AbsLineInfo>> abslineinfo; // idem
   // information about local variables (debug information)
-  std::vector<LocVar> locvars;
+  std::vector<LocVar, lua::allocator<LocVar>> locvars;
   TString  *source = nullptr;  /* used for debug information */
   GCObject *gclist = nullptr;
 
@@ -601,6 +601,8 @@ struct Proto : public GCObject {
     , k(lua::allocator<TValue>(L))
     , upvalues(lua::allocator<Upvaldesc>(L))
     , lineinfo(lua::allocator<ls_byte>(L))
+    , abslineinfo(lua::allocator<AbsLineInfo>(L))
+    , locvars(lua::allocator<LocVar>(L))
   {}
 };
 
