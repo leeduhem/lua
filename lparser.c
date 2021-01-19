@@ -613,9 +613,11 @@ static Proto *addprototype (LexState *ls) {
   lua_State *L = ls->L;
   FuncState *fs = ls->fs;
   Proto *f = fs->f;  /* prototype of current function */
-  Proto *clp = luaF_newproto(L);
+  if (f->p.empty() || cast_sizet(fs->np) >= f->p.size())
+    f->p.resize(f->p.size() + 1);
+  lua_assert(cast_sizet(fs->np) < f->p.size());
+  Proto *clp = f->p[fs->np++] = luaF_newproto(L);
   luaC_objbarrier(L, f, clp);
-  f->p.push_back(clp);
   return clp;
 }
 
@@ -629,7 +631,7 @@ static Proto *addprototype (LexState *ls) {
 */
 static void codeclosure (LexState *ls, expdesc *v) {
   FuncState *fs = ls->fs->prev;
-  init_exp(v, VRELOC, luaK_codeABx(fs, OP_CLOSURE, 0, fs->f->p.size() - 1));
+  init_exp(v, VRELOC, luaK_codeABx(fs, OP_CLOSURE, 0, fs->np - 1));
   luaK_exp2nextreg(fs, v);  /* fix it at the last register */
 }
 

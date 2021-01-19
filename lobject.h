@@ -585,7 +585,8 @@ struct Proto : public GCObject {
   // constants used by the function
   std::vector<TValue, lua::allocator<TValue>> k;
   Instruction *code = nullptr;  /* opcodes */
-  std::vector<Proto *> p; // functions defined inside the function
+  // functions defined inside the function
+  std::vector<Proto *, lua::allocator<Proto *>> p;
   // upvalue information
   std::vector<Upvaldesc, lua::allocator<Upvaldesc>> upvalues;
   // information about source lines (debug information)
@@ -599,6 +600,7 @@ struct Proto : public GCObject {
   Proto(lua_State *L, lu_byte tag)
     : GCObject(G(L), tag)
     , k(lua::allocator<TValue>(L))
+    , p(lua::allocator<Proto *>(L))
     , upvalues(lua::allocator<Upvaldesc>(L))
     , lineinfo(lua::allocator<ls_byte>(L))
     , abslineinfo(lua::allocator<AbsLineInfo>(L))
