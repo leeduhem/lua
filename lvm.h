@@ -47,13 +47,13 @@ constexpr F2Imod LUA_FLOORN2I = F2Ieq;
 #endif
 
 
-LUAI_FUNC int luaV_equalobj (lua_State *L, const TValue *t1, const TValue *t2);
-LUAI_FUNC int luaV_lessthan (lua_State *L, const TValue *l, const TValue *r);
-LUAI_FUNC int luaV_lessequal (lua_State *L, const TValue *l, const TValue *r);
-LUAI_FUNC int luaV_tonumber_ (const TValue *obj, lua_Number *n);
-LUAI_FUNC int luaV_tointeger (const TValue *obj, lua_Integer *p, F2Imod mode);
-LUAI_FUNC int luaV_tointegerns (const TValue *obj, lua_Integer *p, F2Imod mode);
-LUAI_FUNC int luaV_flttointeger (lua_Number n, lua_Integer *p, F2Imod mode);
+LUAI_FUNC bool luaV_equalobj (lua_State *L, const TValue *t1, const TValue *t2);
+LUAI_FUNC bool luaV_lessthan (lua_State *L, const TValue *l, const TValue *r);
+LUAI_FUNC bool luaV_lessequal (lua_State *L, const TValue *l, const TValue *r);
+LUAI_FUNC bool luaV_tonumber_ (const TValue *obj, lua_Number *n);
+LUAI_FUNC bool luaV_tointeger (const TValue *obj, lua_Integer *p, F2Imod mode);
+LUAI_FUNC bool luaV_tointegerns (const TValue *obj, lua_Integer *p, F2Imod mode);
+LUAI_FUNC bool luaV_flttointeger (lua_Number n, lua_Integer *p, F2Imod mode);
 LUAI_FUNC void luaV_finishget (lua_State *L, const TValue *t, TValue *key, StkId val, const TValue *slot);
 LUAI_FUNC void luaV_finishset (lua_State *L, const TValue *t, TValue *key, TValue *val, const TValue *slot);
 LUAI_FUNC void luaV_finishOp (lua_State *L);
@@ -67,42 +67,42 @@ LUAI_FUNC void luaV_objlen (lua_State *L, StkId ra, const TValue *rb);
 
 
 /* convert an object to a float (including string coercion) */
-inline int tonumber(const TValue *o, lua_Number *n) {
+inline bool tonumber(const TValue *o, lua_Number *n) {
   if (ttisfloat(o)) {
     *n = fltvalue(o);
-    return 1;
+    return true;
   }
   return luaV_tonumber_(o, n);
 }
 
 /* convert an object to a float (without string coercion) */
-inline int tonumberns(const TValue *o, lua_Number &n) {
+inline bool tonumberns(const TValue *o, lua_Number &n) {
   if (ttisfloat(o)) {
     n = fltvalue(o);
-    return 1;
+    return true;
   }
   if (ttisinteger(o)) {
     n = cast_num(ivalue(o));
-    return 1;
+    return true;
   }
-  return 0;
+  return false;
 }
 
 
 /* convert an object to an integer (including string coercion) */
-inline int tointeger(const TValue *o, lua_Integer *i) {
+inline bool tointeger(const TValue *o, lua_Integer *i) {
   if (ttisinteger(o)) {
     *i = ivalue(o);
-    return 1;
+    return true;
   }
   return luaV_tointeger(o, i, LUA_FLOORN2I);
 }
 
 /* convert an object to an integer (without string coercion) */
-inline int tointegerns(const TValue *o, lua_Integer *i) {
+inline bool tointegerns(const TValue *o, lua_Integer *i) {
   if (ttisinteger(o)) {
     *i = ivalue(o);
-    return 1;
+    return true;
   }
   return luaV_tointegerns(o, i, LUA_FLOORN2I);
 }

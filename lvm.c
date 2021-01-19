@@ -87,12 +87,11 @@
 ** are disabled via macro 'cvt2num'), do not modify 'result'
 ** and return 0.
 */
-static int l_strton (const TValue *obj, TValue *result) {
+static bool l_strton (const TValue *obj, TValue *result) {
   lua_assert(obj != result);
   if (!cvt2num(obj))  /* is object not a string? */
     return 0;
-  else
-    return (luaO_str2num(svalue(obj), result) == vslen(obj) + 1);
+  return luaO_str2num(svalue(obj), result) == (vslen(obj) + 1);
 }
 
 
@@ -100,29 +99,30 @@ static int l_strton (const TValue *obj, TValue *result) {
 ** Try to convert a value to a float. The float case is already handled
 ** by the macro 'tonumber'.
 */
-int luaV_tonumber_ (const TValue *obj, lua_Number *n) {
-  TValue v;
+bool luaV_tonumber_ (const TValue *obj, lua_Number *n) {
   if (ttisinteger(obj)) {
     *n = cast_num(ivalue(obj));
-    return 1;
+    return true;
   }
-  else if (l_strton(obj, &v)) {  /* string coercible to number? */
+
+  TValue v;
+  if (l_strton(obj, &v)) {  /* string coercible to number? */
     *n = nvalue(&v);  /* convert result of 'luaO_str2num' to a float */
-    return 1;
+    return true;
   }
-  else
-    return 0;  /* conversion failed */
+
+  return false;  /* conversion failed */
 }
 
 
 /*
 ** try to convert a float to an integer, rounding according to 'mode'.
 */
-int luaV_flttointeger (lua_Number n, lua_Integer *p, F2Imod mode) {
+bool luaV_flttointeger (lua_Number n, lua_Integer *p, F2Imod mode) {
   lua_Number f = l_floor(n);
   if (n != f) {  /* not an integral value? */
     if (mode == F2Ieq) return 0;  /* fails if mode demands integral value */
-    else if (mode == F2Iceil)  /* needs ceil? */
+    if (mode == F2Iceil)  /* needs ceil? */
       f += 1;  /* convert floor to ceil (remember: n != f) */
   }
   return lua_numbertointeger(f, p);
@@ -134,22 +134,21 @@ int luaV_flttointeger (lua_Number n, lua_Integer *p, F2Imod mode) {
 ** without string coercion.
 ** ("Fast track" handled by macro 'tointegerns'.)
 */
-int luaV_tointegerns (const TValue *obj, lua_Integer *p, F2Imod mode) {
+bool luaV_tointegerns (const TValue *obj, lua_Integer *p, F2Imod mode) {
   if (ttisfloat(obj))
     return luaV_flttointeger(fltvalue(obj), p, mode);
-  else if (ttisinteger(obj)) {
+  if (ttisinteger(obj)) {
     *p = ivalue(obj);
-    return 1;
+    return true;
   }
-  else
-    return 0;
+  return false;
 }
 
 
 /*
 ** try to convert a value to an integer.
 */
-int luaV_tointeger (const TValue *obj, lua_Integer *p, F2Imod mode) {
+bool luaV_tointeger (const TValue *obj, lua_Integer *p, F2Imod mode) {
   TValue v;
   if (l_strton(obj, &v))  /* does 'obj' point to a numerical string? */
     obj = &v;  /* change it to point to its corresponding number */
@@ -173,8 +172,8 @@ int luaV_tointeger (const TValue *obj, lua_Integer *p, F2Imod mode) {
 ** correct; even a limit of LUA_MININTEGER would run the loop once for
 ** an initial value equal to LUA_MININTEGER.)
 */
-static int forlimit (lua_State *L, lua_Integer init, const TValue *lim,
-                                   lua_Integer *p, lua_Integer step) {
+static bool forlimit (lua_State *L, lua_Integer init, const TValue *lim,
+		      lua_Integer *p, lua_Integer step) {
   if (!luaV_tointeger(lim, p, (step < 0 ? F2Iceil : F2Ifloor))) {
     /* not coercible to in integer */
     lua_Number flim;  /* try to convert to float */
@@ -203,7 +202,7 @@ static int forlimit (lua_State *L, lua_Integer init, const TValue *lim,
 **   ra + 2 : step
 **   ra + 3 : control variable
 */
-static int forprep (lua_State *L, StkId ra) {
+static bool forprep (lua_State *L, StkId ra) {
   TValue *pinit = s2v(ra);
   TValue *plimit = s2v(ra + 1);
   TValue *pstep = s2v(ra + 2);
@@ -215,23 +214,22 @@ static int forprep (lua_State *L, StkId ra) {
       luaG_runerror(L, "'for' step is zero");
     setivalue(s2v(ra + 3), init);  /* control variable */
     if (forlimit(L, init, plimit, &limit, step))
-      return 1;  /* skip the loop */
-    else {  /* prepare loop counter */
-      lua_Unsigned count;
-      if (step > 0) {  /* ascending loop? */
-        count = l_castS2U(limit) - l_castS2U(init);
-        if (step != 1)  /* avoid division in the too common case */
-          count /= l_castS2U(step);
-      }
-      else {  /* step < 0; descending loop */
-        count = l_castS2U(init) - l_castS2U(limit);
-        /* 'step+1' avoids negating 'mininteger' */
-        count /= l_castS2U(-(step + 1)) + 1u;
-      }
-      /* store the counter in place of the limit (which won't be
-         needed anymore) */
-      setivalue(plimit, l_castU2S(count));
+      return true;  /* skip the loop */
+    /* prepare loop counter */
+    lua_Unsigned count;
+    if (step > 0) {  /* ascending loop? */
+      count = l_castS2U(limit) - l_castS2U(init);
+      if (step != 1)  /* avoid division in the too common case */
+	count /= l_castS2U(step);
     }
+    else {  /* step < 0; descending loop */
+      count = l_castS2U(init) - l_castS2U(limit);
+      /* 'step+1' avoids negating 'mininteger' */
+      count /= l_castS2U(-(step + 1)) + 1u;
+    }
+    /* store the counter in place of the limit (which won't be
+       needed anymore) */
+    setivalue(plimit, l_castU2S(count));
   }
   else {  /* try making all values floats */
     lua_Number init; lua_Number limit; lua_Number step;
@@ -245,16 +243,14 @@ static int forprep (lua_State *L, StkId ra) {
       luaG_runerror(L, "'for' step is zero");
     if (luai_numlt(0, step) ? luai_numlt(limit, init)
                             : luai_numlt(init, limit))
-      return 1;  /* skip the loop */
-    else {
-      /* make sure internal values are all floats */
-      setfltvalue(plimit, limit);
-      setfltvalue(pstep, step);
-      setfltvalue(s2v(ra), init);  /* internal index */
-      setfltvalue(s2v(ra + 3), init);  /* control variable */
-    }
+      return true;  /* skip the loop */
+    /* make sure internal values are all floats */
+    setfltvalue(plimit, limit);
+    setfltvalue(pstep, step);
+    setfltvalue(s2v(ra), init);  /* internal index */
+    setfltvalue(s2v(ra + 3), init);  /* control variable */
   }
-  return 0;
+  return false;
 }
 
 
@@ -263,7 +259,7 @@ static int forprep (lua_State *L, StkId ra) {
 ** true iff the loop must continue. (The integer case is
 ** written online with opcode OP_FORLOOP, for performance.)
 */
-static int floatforloop (StkId ra) {
+static bool floatforloop (StkId ra) {
   lua_Number step = fltvalue(s2v(ra + 2));
   lua_Number limit = fltvalue(s2v(ra + 1));
   lua_Number idx = fltvalue(s2v(ra));  /* internal index */
@@ -272,10 +268,9 @@ static int floatforloop (StkId ra) {
                           : luai_numle(limit, idx)) {
     chgfltvalue(s2v(ra), idx);  /* update internal index */
     setfltvalue(s2v(ra + 3), idx);  /* and control variable */
-    return 1;  /* jump back */
+    return true;  /* jump back */
   }
-  else
-    return 0;  /* finish the loop */
+  return false;  /* finish the loop */
 }
 
 
@@ -284,12 +279,10 @@ static int floatforloop (StkId ra) {
 ** if 'slot' is NULL, 't' is not a table; otherwise, 'slot' points to
 ** t[k] entry (which must be empty).
 */
-void luaV_finishget (lua_State *L, const TValue *t, TValue *key, StkId val,
-                      const TValue *slot) {
-  int loop;  /* counter to avoid infinite loops */
-  const TValue *tm;  /* metamethod */
-  for (loop = 0; loop < MAXTAGLOOP; loop++) {
-    if (slot == NULL) {  /* 't' is not a table? */
+void luaV_finishget (lua_State *L, const TValue *t, TValue *key, StkId val, const TValue *slot) {
+  for (int loop = 0; loop < MAXTAGLOOP; loop++) {  // to avoid infinite loop
+    const TValue *tm;  /* metamethod */
+    if (!slot) {  /* 't' is not a table? */
       lua_assert(!ttistable(t));
       tm = luaT_gettmbyobj(L, t, TM_INDEX);
       if (unlikely(notm(tm)))
@@ -299,7 +292,7 @@ void luaV_finishget (lua_State *L, const TValue *t, TValue *key, StkId val,
     else {  /* 't' is a table */
       lua_assert(isempty(slot));
       tm = fasttm(L, hvalue(t)->metatable, TM_INDEX);  /* table's metamethod */
-      if (tm == NULL) {  /* no metamethod? */
+      if (!tm) {  /* no metamethod? */
         setnilvalue(s2v(val));  /* result is nil */
         return;
       }
@@ -327,22 +320,20 @@ void luaV_finishget (lua_State *L, const TValue *t, TValue *key, StkId val,
 ** is no such entry.  (The value at 'slot' must be empty, otherwise
 ** 'luaV_fastget' would have done the job.)
 */
-void luaV_finishset (lua_State *L, const TValue *t, TValue *key,
-                     TValue *val, const TValue *slot) {
-  int loop;  /* counter to avoid infinite loops */
-  for (loop = 0; loop < MAXTAGLOOP; loop++) {
+void luaV_finishset (lua_State *L, const TValue *t, TValue *key, TValue *val, const TValue *slot) {
+  for (int loop = 0; loop < MAXTAGLOOP; loop++) { // to avoid infinite loops
     const TValue *tm;  /* '__newindex' metamethod */
-    if (slot != NULL) {  /* is 't' a table? */
+    if (slot) {  /* is 't' a table? */
       Table *h = hvalue(t);  /* save 't' table */
       lua_assert(isempty(slot));  /* slot must be empty */
       tm = fasttm(L, h->metatable, TM_NEWINDEX);  /* get metamethod */
-      if (tm == NULL) {  /* no metamethod? */
+      if (!tm) {  /* no metamethod? */
         if (isabstkey(slot))  /* no previous entry? */
           slot = luaH_newkey(L, h, key);  /* create one */
         /* no metamethod and (now) there is an entry with given key */
-        setobj2t(L, cast(TValue *, slot), val);  /* set its new value */
+	setobj2t(L, const_cast<TValue *>(slot), val); // set its new value
         invalidateTMcache(h);
-        luaC_barrierback(L, obj2gco(h), val);
+        luaC_barrierback(L, h, val);
         return;
       }
       /* else will try the metamethod */
@@ -382,18 +373,17 @@ static int l_strcmp (const TString *ls, const TString *rs) {
   size_t lr = tsslen(rs);
   for (;;) {  /* for each segment */
     int temp = strcoll(l, r);
-    if (temp != 0)  /* not equal? */
+    if (temp)  /* not equal? */
       return temp;  /* done */
-    else {  /* strings are equal up to a '\0' */
-      size_t len = strlen(l);  /* index of first '\0' in both strings */
-      if (len == lr)  /* 'rs' is finished? */
-        return (len == ll) ? 0 : 1;  /* check 'ls' */
-      else if (len == ll)  /* 'ls' is finished? */
-        return -1;  /* 'ls' is less than 'rs' ('rs' is not finished) */
-      /* both strings longer than 'len'; go on comparing after the '\0' */
-      len++;
-      l += len; ll -= len; r += len; lr -= len;
-    }
+    /* strings are equal up to a '\0' */
+    size_t len = strlen(l);  /* index of first '\0' in both strings */
+    if (len == lr)  /* 'rs' is finished? */
+      return (len == ll) ? 0 : 1;  /* check 'ls' */
+    if (len == ll)  /* 'ls' is finished? */
+      return -1;  /* 'ls' is less than 'rs' ('rs' is not finished) */
+    /* both strings longer than 'len'; go on comparing after the '\0' */
+    len++;
+    l += len; ll -= len; r += len; lr -= len;
   }
 }
 
@@ -412,13 +402,12 @@ static int l_strcmp (const TString *ls, const TString *rs) {
 static int LTintfloat (lua_Integer i, lua_Number f) {
   if (l_intfitsf(i))
     return luai_numlt(cast_num(i), f);  /* compare them as floats */
-  else {  /* i < f <=> i < ceil(f) */
-    lua_Integer fi;
-    if (luaV_flttointeger(f, &fi, F2Iceil))  /* fi = ceil(f) */
-      return i < fi;   /* compare them as integers */
-    else  /* 'f' is either greater or less than all integers */
-      return f > 0;  /* greater? */
-  }
+  /* i < f <=> i < ceil(f) */
+  lua_Integer fi;
+  if (luaV_flttointeger(f, &fi, F2Iceil))  /* fi = ceil(f) */
+    return i < fi;   /* compare them as integers */
+  /* 'f' is either greater or less than all integers */
+  return f > 0;  /* greater? */
 }
 
 
@@ -429,13 +418,12 @@ static int LTintfloat (lua_Integer i, lua_Number f) {
 static int LEintfloat (lua_Integer i, lua_Number f) {
   if (l_intfitsf(i))
     return luai_numle(cast_num(i), f);  /* compare them as floats */
-  else {  /* i <= f <=> i <= floor(f) */
-    lua_Integer fi;
-    if (luaV_flttointeger(f, &fi, F2Ifloor))  /* fi = floor(f) */
-      return i <= fi;   /* compare them as integers */
-    else  /* 'f' is either greater or less than all integers */
-      return f > 0;  /* greater? */
-  }
+  /* i <= f <=> i <= floor(f) */
+  lua_Integer fi;
+  if (luaV_flttointeger(f, &fi, F2Ifloor))  /* fi = floor(f) */
+    return i <= fi;   /* compare them as integers */
+  /* 'f' is either greater or less than all integers */
+  return f > 0;  /* greater? */
 }
 
 
@@ -446,13 +434,12 @@ static int LEintfloat (lua_Integer i, lua_Number f) {
 static int LTfloatint (lua_Number f, lua_Integer i) {
   if (l_intfitsf(i))
     return luai_numlt(f, cast_num(i));  /* compare them as floats */
-  else {  /* f < i <=> floor(f) < i */
-    lua_Integer fi;
-    if (luaV_flttointeger(f, &fi, F2Ifloor))  /* fi = floor(f) */
-      return fi < i;   /* compare them as integers */
-    else  /* 'f' is either greater or less than all integers */
-      return f < 0;  /* less? */
-  }
+  /* f < i <=> floor(f) < i */
+  lua_Integer fi;
+  if (luaV_flttointeger(f, &fi, F2Ifloor))  /* fi = floor(f) */
+    return fi < i;   /* compare them as integers */
+  /* 'f' is either greater or less than all integers */
+  return f < 0;  /* less? */
 }
 
 
@@ -463,13 +450,12 @@ static int LTfloatint (lua_Number f, lua_Integer i) {
 static int LEfloatint (lua_Number f, lua_Integer i) {
   if (l_intfitsf(i))
     return luai_numle(f, cast_num(i));  /* compare them as floats */
-  else {  /* f <= i <=> ceil(f) <= i */
-    lua_Integer fi;
-    if (luaV_flttointeger(f, &fi, F2Iceil))  /* fi = ceil(f) */
-      return fi <= i;   /* compare them as integers */
-    else  /* 'f' is either greater or less than all integers */
-      return f < 0;  /* less? */
-  }
+  /* f <= i <=> ceil(f) <= i */
+  lua_Integer fi;
+  if (luaV_flttointeger(f, &fi, F2Iceil))  /* fi = ceil(f) */
+    return fi <= i;   /* compare them as integers */
+  /* 'f' is either greater or less than all integers */
+  return f < 0;  /* less? */
 }
 
 
@@ -482,16 +468,14 @@ static int LTnum (const TValue *l, const TValue *r) {
     lua_Integer li = ivalue(l);
     if (ttisinteger(r))
       return li < ivalue(r);  /* both are integers */
-    else  /* 'l' is int and 'r' is float */
-      return LTintfloat(li, fltvalue(r));  /* l < r ? */
+    /* 'l' is int and 'r' is float */
+    return LTintfloat(li, fltvalue(r));  /* l < r ? */
   }
-  else {
-    lua_Number lf = fltvalue(l);  /* 'l' must be float */
-    if (ttisfloat(r))
-      return luai_numlt(lf, fltvalue(r));  /* both are float */
-    else  /* 'l' is float and 'r' is int */
-      return LTfloatint(lf, ivalue(r));
-  }
+  lua_Number lf = fltvalue(l);  /* 'l' must be float */
+  if (ttisfloat(r))
+    return luai_numlt(lf, fltvalue(r));  /* both are float */
+  /* 'l' is float and 'r' is int */
+  return LTfloatint(lf, ivalue(r));
 }
 
 
@@ -504,16 +488,14 @@ static int LEnum (const TValue *l, const TValue *r) {
     lua_Integer li = ivalue(l);
     if (ttisinteger(r))
       return li <= ivalue(r);  /* both are integers */
-    else  /* 'l' is int and 'r' is float */
-      return LEintfloat(li, fltvalue(r));  /* l <= r ? */
+    /* 'l' is int and 'r' is float */
+    return LEintfloat(li, fltvalue(r));  /* l <= r ? */
   }
-  else {
-    lua_Number lf = fltvalue(l);  /* 'l' must be float */
-    if (ttisfloat(r))
-      return luai_numle(lf, fltvalue(r));  /* both are float */
-    else  /* 'l' is float and 'r' is int */
-      return LEfloatint(lf, ivalue(r));
-  }
+  lua_Number lf = fltvalue(l);  /* 'l' must be float */
+  if (ttisfloat(r))
+    return luai_numle(lf, fltvalue(r));  /* both are float */
+  /* 'l' is float and 'r' is int */
+  return LEfloatint(lf, ivalue(r));
 }
 
 
@@ -524,18 +506,17 @@ static int lessthanothers (lua_State *L, const TValue *l, const TValue *r) {
   lua_assert(!ttisnumber(l) || !ttisnumber(r));
   if (ttisstring(l) && ttisstring(r))  /* both are strings? */
     return l_strcmp(tsvalue(l), tsvalue(r)) < 0;
-  else
-    return luaT_callorderTM(L, l, r, TM_LT);
+  return luaT_callorderTM(L, l, r, TM_LT);
 }
 
 
 /*
 ** Main operation less than; return 'l < r'.
 */
-int luaV_lessthan (lua_State *L, const TValue *l, const TValue *r) {
+bool luaV_lessthan (lua_State *L, const TValue *l, const TValue *r) {
   if (ttisnumber(l) && ttisnumber(r))  /* both operands are numbers? */
     return LTnum(l, r);
-  else return lessthanothers(L, l, r);
+  return lessthanothers(L, l, r);
 }
 
 
@@ -546,18 +527,17 @@ static int lessequalothers (lua_State *L, const TValue *l, const TValue *r) {
   lua_assert(!ttisnumber(l) || !ttisnumber(r));
   if (ttisstring(l) && ttisstring(r))  /* both are strings? */
     return l_strcmp(tsvalue(l), tsvalue(r)) <= 0;
-  else
-    return luaT_callorderTM(L, l, r, TM_LE);
+  return luaT_callorderTM(L, l, r, TM_LE);
 }
 
 
 /*
 ** Main operation less than or equal to; return 'l <= r'.
 */
-int luaV_lessequal (lua_State *L, const TValue *l, const TValue *r) {
+bool luaV_lessequal (lua_State *L, const TValue *l, const TValue *r) {
   if (ttisnumber(l) && ttisnumber(r))  /* both operands are numbers? */
     return LEnum(l, r);
-  else return lessequalothers(L, l, r);
+  return lessequalothers(L, l, r);
 }
 
 
@@ -565,58 +545,58 @@ int luaV_lessequal (lua_State *L, const TValue *l, const TValue *r) {
 ** Main operation for equality of Lua values; return 't1 == t2'.
 ** L == NULL means raw equality (no metamethods)
 */
-int luaV_equalobj (lua_State *L, const TValue *t1, const TValue *t2) {
+bool luaV_equalobj (lua_State *L, const TValue *t1, const TValue *t2) {
   const TValue *tm;
   if (ttypetag(t1) != ttypetag(t2)) {  /* not the same variant? */
     if (ttype(t1) != ttype(t2) || ttype(t1) != LUA_TNUMBER)
-      return 0;  /* only numbers can be equal with different variants */
-    else {  /* two numbers with different variants */
-      lua_Integer i1, i2;  /* compare them as integers */
-      return (tointegerns(t1, &i1) && tointegerns(t2, &i2) && i1 == i2);
-    }
+      return false;  /* only numbers can be equal with different variants */
+    // two numbers with different variants
+    lua_Integer i1, i2;  /* compare them as integers */
+    return (tointegerns(t1, &i1) && tointegerns(t2, &i2) && i1 == i2);
   }
   /* values have same type and same variant */
   switch (ttypetag(t1)) {
-    case LUA_VNIL: case LUA_VFALSE: case LUA_VTRUE: return 1;
-    case LUA_VNUMINT: return (ivalue(t1) == ivalue(t2));
-    case LUA_VNUMFLT: return luai_numeq(fltvalue(t1), fltvalue(t2));
-    case LUA_VLIGHTUSERDATA: return pvalue(t1) == pvalue(t2);
-    case LUA_VLCF: return fvalue(t1) == fvalue(t2);
-    case LUA_VSHRSTR: return eqshrstr(tsvalue(t1), tsvalue(t2));
-    case LUA_VLNGSTR: return luaS_eqlngstr(tsvalue(t1), tsvalue(t2));
-    case LUA_VUSERDATA: {
-      if (uvalue(t1) == uvalue(t2)) return 1;
-      else if (L == NULL) return 0;
-      tm = fasttm(L, uvalue(t1)->metatable, TM_EQ);
-      if (tm == NULL)
-        tm = fasttm(L, uvalue(t2)->metatable, TM_EQ);
-      break;  /* will try TM */
-    }
-    case LUA_VTABLE: {
-      if (hvalue(t1) == hvalue(t2)) return 1;
-      else if (L == NULL) return 0;
-      tm = fasttm(L, hvalue(t1)->metatable, TM_EQ);
-      if (tm == NULL)
-        tm = fasttm(L, hvalue(t2)->metatable, TM_EQ);
-      break;  /* will try TM */
-    }
-    default:
-      return gcvalue(t1) == gcvalue(t2);
+  case LUA_VNIL: case LUA_VFALSE: case LUA_VTRUE: return true;
+  case LUA_VNUMINT: return (ivalue(t1) == ivalue(t2));
+  case LUA_VNUMFLT: return luai_numeq(fltvalue(t1), fltvalue(t2));
+  case LUA_VLIGHTUSERDATA: return pvalue(t1) == pvalue(t2);
+  case LUA_VLCF: return fvalue(t1) == fvalue(t2);
+  case LUA_VSHRSTR: return eqshrstr(tsvalue(t1), tsvalue(t2));
+  case LUA_VLNGSTR: return luaS_eqlngstr(tsvalue(t1), tsvalue(t2));
+  case LUA_VUSERDATA: {
+    if (uvalue(t1) == uvalue(t2)) return true;
+    if (!L) return false;
+    tm = fasttm(L, uvalue(t1)->metatable, TM_EQ);
+    if (!tm)
+      tm = fasttm(L, uvalue(t2)->metatable, TM_EQ);
+    break;  /* will try TM */
   }
-  if (tm == NULL)  /* no TM? */
-    return 0;  /* objects are different */
-  else {
-    luaT_callTMres(L, tm, t1, t2, L->top);  /* call TM */
-    return !l_isfalse(s2v(L->top));
+  case LUA_VTABLE: {
+    if (hvalue(t1) == hvalue(t2)) return true;
+    if (L == NULL) return false;
+    tm = fasttm(L, hvalue(t1)->metatable, TM_EQ);
+    if (!tm)
+      tm = fasttm(L, hvalue(t2)->metatable, TM_EQ);
+    break;  /* will try TM */
   }
+  default:
+    return gcvalue(t1) == gcvalue(t2);
+  }
+  if (!tm)  /* no TM? */
+    return false;  /* objects are different */
+  luaT_callTMres(L, tm, t1, t2, L->top);  /* call TM */
+  return !l_isfalse(s2v(L->top));
 }
 
 
-/* macro used by 'luaV_concat' to ensure that element at 'o' is a string */
-#define tostring(L,o)  \
-	(ttisstring(o) || (cvt2str(o) && (luaO_tostring(L, o), 1)))
+// function used by 'luaV_concat' to ensure that element at 'o' is a string
+inline bool tostring(lua_State *L, TValue *o) {
+  return ttisstring(o) || (cvt2str(o) && (luaO_tostring(L, o), true));
+}
 
-#define isemptystr(o)	(ttisshrstring(o) && tsvalue(o)->shrlen == 0)
+inline bool isemptystr(const TValue *o) {
+  return ttisshrstring(o) && tsvalue(o)->shrlen == 0;
+}
 
 /* copy strings in stack from top - n up to top - 1 to buffer */
 static void copy2buff (StkId top, int n, char *buff) {
@@ -719,12 +699,11 @@ lua_Integer luaV_idiv (lua_State *L, lua_Integer m, lua_Integer n) {
       luaG_runerror(L, "attempt to divide by zero");
     return intop(-, 0, m);   /* n==-1; avoid overflow with 0x80000...//-1 */
   }
-  else {
-    lua_Integer q = m / n;  /* perform C division */
-    if ((m ^ n) < 0 && m % n != 0)  /* 'm/n' would be negative non-integer? */
-      q -= 1;  /* correct result for different rounding */
-    return q;
-  }
+
+  lua_Integer q = m / n;  /* perform C division */
+  if ((m ^ n) < 0 && m % n != 0)  /* 'm/n' would be negative non-integer? */
+    q -= 1;  /* correct result for different rounding */
+  return q;
 }
 
 
@@ -739,12 +718,11 @@ lua_Integer luaV_mod (lua_State *L, lua_Integer m, lua_Integer n) {
       luaG_runerror(L, "attempt to perform 'n%%0'");
     return 0;   /* m % -1 == 0; avoid overflow with 0x80000...%-1 */
   }
-  else {
-    lua_Integer r = m % n;
-    if (r != 0 && (r ^ n) < 0)  /* 'm/n' would be non-integer negative? */
-      r += n;  /* correct result for different rounding */
-    return r;
-  }
+
+  lua_Integer r = m % n;
+  if (r != 0 && (r ^ n) < 0)  /* 'm/n' would be non-integer negative? */
+    r += n;  /* correct result for different rounding */
+  return r;
 }
 
 
@@ -759,38 +737,34 @@ lua_Number luaV_modf (lua_State *L, lua_Number m, lua_Number n) {
 
 
 /* number of bits in an integer */
-#define NBITS	cast_int(sizeof(lua_Integer) * CHAR_BIT)
+constexpr int NBITS = cast_int(sizeof(lua_Integer) * CHAR_BIT);
 
 /*
 ** Shift left operation. (Shift right just negates 'y'.)
 */
-#define luaV_shiftr(x,y)	luaV_shiftl(x,-(y))
+inline lua_Integer luaV_shiftr(lua_Integer x, lua_Integer y) { return luaV_shiftl(x, -y); }
 
 lua_Integer luaV_shiftl (lua_Integer x, lua_Integer y) {
-  if (y < 0) {  /* shift right? */
+  if (y < 0) { // shift right?
     if (y <= -NBITS) return 0;
-    else return intop(>>, x, -y);
+    return intop(>>, x, -y);
   }
-  else {  /* shift left */
-    if (y >= NBITS) return 0;
-    else return intop(<<, x, y);
-  }
+  // shift left
+  if (y >= NBITS) return 0;
+  return intop(<<, x, y);
 }
 
 
 /*
-** create a new Lua closure, push it in the stack, and initialize
-** its upvalues.
+** create a new Lua closure, push it in the stack, and initialize its upvalues.
 */
-static void pushclosure (lua_State *L, Proto *p, UpVal **encup, StkId base,
-                         StkId ra) {
+static void pushclosure (lua_State *L, Proto *p, UpVal **encup, StkId base, StkId ra) {
   int nup = p->upvalues.size();
   auto &uv = p->upvalues;
-  int i;
   LClosure *ncl = luaF_newLclosure(L, nup);
   ncl->p = p;
   setclLvalue2s(L, ra, ncl);  /* anchor new closure in stack */
-  for (i = 0; i < nup; i++) {  /* fill in its upvalues */
+  for (int i = 0; i < nup; i++) {  /* fill in its upvalues */
     if (uv[i].instack)  /* upvalue refers to local variable? */
       ncl->upvals[i] = luaF_findupval(L, base + uv[i].idx);
     else  /* get upvalue from enclosing function */
@@ -848,8 +822,8 @@ void luaV_finishOp (lua_State *L) {
     default: {
       /* only these other opcodes can yield */
       lua_assert(op == OP_TFORCALL || op == OP_CALL ||
-           op == OP_TAILCALL || op == OP_SETTABUP || op == OP_SETTABLE ||
-           op == OP_SETI || op == OP_SETFIELD);
+		 op == OP_TAILCALL || op == OP_SETTABUP || op == OP_SETTABLE ||
+		 op == OP_SETI || op == OP_SETFIELD);
       break;
     }
   }
@@ -864,18 +838,29 @@ void luaV_finishOp (lua_State *L) {
 ** ===================================================================
 */
 
-#define l_addi(L,a,b)	intop(+, a, b)
-#define l_subi(L,a,b)	intop(-, a, b)
-#define l_muli(L,a,b)	intop(*, a, b)
-#define l_band(a,b)	intop(&, a, b)
-#define l_bor(a,b)	intop(|, a, b)
-#define l_bxor(a,b)	intop(^, a, b)
+inline lua_Integer l_addi(lua_State *, lua_Integer a, lua_Integer b) {
+  return l_castS2U(a) + l_castS2U(b);
+}
+inline lua_Integer l_subi(lua_State *, lua_Integer a, lua_Integer b) {
+  return l_castS2U(a) - l_castS2U(b);
+}
+inline lua_Integer l_muli(lua_State *, lua_Integer a, lua_Integer b) {
+  return l_castS2U(a) * l_castS2U(b);
+}
+inline lua_Integer l_band(lua_Integer a, lua_Integer b) {
+  return l_castS2U(a) & l_castS2U(b);
+}
+inline lua_Integer l_bor(lua_Integer a, lua_Integer b) {
+  return l_castS2U(a) | l_castS2U(b);
+}
+inline lua_Integer l_bxor(lua_Integer a, lua_Integer b) {
+  return l_castS2U(a) ^ l_castS2U(b);
+}
 
-#define l_lti(a,b)	(a < b)
-#define l_lei(a,b)	(a <= b)
-#define l_gti(a,b)	(a > b)
-#define l_gei(a,b)	(a >= b)
-
+inline int l_lti(lua_Integer a, lua_Integer b) { return a < b; }
+inline int l_lei(lua_Integer a, lua_Integer b) { return a <= b; }
+inline int l_gti(lua_Integer a, lua_Integer b) { return a > b; }
+inline int l_gei(lua_Integer a, lua_Integer b) { return a >= b; }
 
 /*
 ** Arithmetic operations with immediate operands. 'iop' is the integer
