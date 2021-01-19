@@ -329,10 +329,7 @@ static void savelineinfo (FuncState *fs, Proto *f, int line) {
   int linedif = line - fs->previousline;
   int pc = fs->pc - 1;  /* last instruction coded */
   if (abs(linedif) >= LIMLINEDIFF || fs->iwthabs++ > MAXIWTHABS) {
-    if (f->abslineinfo.empty() || (cast_sizet(fs->nabslineinfo) > f->abslineinfo.size() - 1))
-      f->abslineinfo.resize(fs->nabslineinfo + 1);
-    f->abslineinfo[fs->nabslineinfo] = {pc, line};
-    fs->nabslineinfo++;
+    f->abslineinfo.emplace_back(pc, line);
     linedif = ABSLINEINFO;  /* signal that there is absolute information */
     fs->iwthabs = 0;	    /* restart counter */
   }
@@ -357,8 +354,7 @@ static void removelastlineinfo (FuncState *fs) {
     fs->iwthabs--;  /* undo previous increment */
   }
   else {  /* absolute line information */
-    lua_assert(f->abslineinfo[fs->nabslineinfo - 1].pc == pc);
-    fs->nabslineinfo--;  /* remove it */
+    lua_assert(f->abslineinfo.back().pc == pc);
     fs->iwthabs = MAXIWTHABS + 1;  /* force next line info to be absolute */
   }
 }

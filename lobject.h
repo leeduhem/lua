@@ -588,9 +588,11 @@ struct Proto : public GCObject {
   std::vector<Proto *> p; // functions defined inside the function
   // upvalue information
   std::vector<Upvaldesc, lua::allocator<Upvaldesc>> upvalues;
-  std::vector<ls_byte, lua::allocator<ls_byte>> lineinfo;  // information about source lines (debug information)
+  // information about source lines (debug information)
+  std::vector<ls_byte, lua::allocator<ls_byte>> lineinfo;
   std::vector<AbsLineInfo> abslineinfo;  // idem
-  std::vector<LocVar> locvars;  // information about local variables (debug information)
+  // information about local variables (debug information)
+  std::vector<LocVar> locvars;
   TString  *source = nullptr;  /* used for debug information */
   GCObject *gclist = nullptr;
 
