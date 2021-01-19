@@ -52,17 +52,17 @@ l_noret luaK_semerror (LexState *ls, const char *msg) {
 ** If expression is a numeric constant, fills 'v' with its value
 ** and returns 1. Otherwise, returns 0.
 */
-static int tonumeral (const expdesc *e, TValue *v) {
+static bool tonumeral (const expdesc *e, TValue *v) {
   if (hasjumps(e))
-    return 0;  /* not a numeral */
+    return false;  /* not a numeral */
   switch (e->k) {
     case VKINT:
       if (v) setivalue(v, e->u.ival);
-      return 1;
+      return true;
     case VKFLT:
       if (v) setfltvalue(v, e->u.nval);
-      return 1;
-    default: return 0;
+      return true;
+    default: return false;
   }
 }
 
@@ -80,26 +80,26 @@ static TValue *const2val (FuncState *fs, const expdesc *e) {
 ** If expression is a constant, fills 'v' with its value
 ** and returns 1. Otherwise, returns 0.
 */
-int luaK_exp2const (FuncState *fs, const expdesc *e, TValue *v) {
+bool luaK_exp2const (FuncState *fs, const expdesc *e, TValue *v) {
   if (hasjumps(e))
-    return 0;  /* not a constant */
+    return false;  /* not a constant */
   switch (e->k) {
     case VFALSE:
       setbfvalue(v);
-      return 1;
+      return true;
     case VTRUE:
       setbtvalue(v);
-      return 1;
+      return true;
     case VNIL:
       setnilvalue(v);
-      return 1;
+      return true;
     case VKSTR: {
       setsvalue(fs->ls->L, v, e->u.strval);
-      return 1;
+      return true;
     }
     case VCONST: {
       setobj(fs->ls->L, v, const2val(fs, e));
-      return 1;
+      return true;
     }
     default: return tonumeral(e, v);
   }
@@ -248,10 +248,10 @@ static Instruction *getjumpcontrol (FuncState *fs, int pc) {
 ** register. Otherwise, change instruction to a simple 'TEST' (produces
 ** no register value)
 */
-static int patchtestreg (FuncState *fs, int node, int reg) {
+static bool patchtestreg (FuncState *fs, int node, int reg) {
   Instruction *i = getjumpcontrol(fs, node);
   if (GET_OPCODE(*i) != OP_TESTSET)
-    return 0;  /* cannot patch other instructions */
+    return false;  /* cannot patch other instructions */
   if (reg != NO_REG && reg != GETARG_B(*i))
     SETARG_A(*i, reg);
   else {
@@ -259,7 +259,7 @@ static int patchtestreg (FuncState *fs, int node, int reg) {
         change instruction to simple test */
     *i = CREATE_ABCk(OP_TEST, GETARG_B(*i), 0, 0, GETARG_k(*i));
   }
-  return 1;
+  return true;
 }
 
 
@@ -629,7 +629,7 @@ static int fitsC (lua_Integer i) {
 /*
 ** Check whether 'i' can be stored in an 'sBx' operand.
 */
-static int fitsBx (lua_Integer i) {
+static bool fitsBx (lua_Integer i) {
   return (-OFFSET_sBx <= i && i <= MAXARG_Bx - OFFSET_sBx);
 }
 
@@ -860,12 +860,12 @@ static int code_loadbool (FuncState *fs, int A, OpCode op) {
 ** check whether list has any jump that do not produce a value
 ** or produce an inverted value
 */
-static int need_value (FuncState *fs, int list) {
+static bool need_value (FuncState *fs, int list) {
   for (; list != NO_JUMP; list = getjump(fs, list)) {
     Instruction i = *getjumpcontrol(fs, list);
-    if (GET_OPCODE(i) != OP_TESTSET) return 1;
+    if (GET_OPCODE(i) != OP_TESTSET) return true;
   }
-  return 0;  /* not found */
+  return false;  /* not found */
 }
 
 
@@ -959,7 +959,7 @@ void luaK_exp2val (FuncState *fs, expdesc *e) {
 ** Try to make 'e' a K expression with an index in the range of R/K
 ** indices. Return true iff succeeded.
 */
-static int luaK_exp2K (FuncState *fs, expdesc *e) {
+static bool luaK_exp2K (FuncState *fs, expdesc *e) {
   if (!hasjumps(e)) {
     int info;
     switch (e->k) {  /* move constants to 'k' */
@@ -970,16 +970,16 @@ static int luaK_exp2K (FuncState *fs, expdesc *e) {
       case VKFLT: info = luaK_numberK(fs, e->u.nval); break;
       case VKSTR: info = stringK(fs, e->u.strval); break;
       case VK: info = e->u.info; break;
-      default: return 0;  /* not a constant */
+      default: return false;  /* not a constant */
     }
     if (info <= MAXINDEXRK) {  /* does constant fit in 'argC'? */
       e->k = VK;  /* make expression a 'K' expression */
       e->u.info = info;
-      return 1;
+      return true;
     }
   }
   /* else, expression doesn't fit; leave it unchanged */
-  return 0;
+  return false;
 }
 
 
@@ -989,13 +989,13 @@ static int luaK_exp2K (FuncState *fs, expdesc *e) {
 ** in the range of R/K indices).
 ** Returns 1 iff expression is K.
 */
-int luaK_exp2RK (FuncState *fs, expdesc *e) {
+bool luaK_exp2RK (FuncState *fs, expdesc *e) {
   if (luaK_exp2K(fs, e))
-    return 1;
+    return true;
 
   /* not a constant in the right range: put it in a register */
   luaK_exp2anyreg(fs, e);
-  return 0;
+  return false;
 }
 
 
@@ -1187,7 +1187,7 @@ static int isKstr (FuncState *fs, expdesc *e) {
 /*
 ** Check whether expression 'e' is a literal integer.
 */
-int luaK_isKint (expdesc *e) {
+bool luaK_isKint (expdesc *e) {
   return (e->k == VKINT && !hasjumps(e));
 }
 
@@ -1205,7 +1205,7 @@ static int isCint (expdesc *e) {
 ** Check whether expression 'e' is a literal integer in
 ** proper range to fit in register sC
 */
-static int isSCint (expdesc *e) {
+static bool isSCint (expdesc *e) {
   return luaK_isKint(e) && fitsC(e->u.ival);
 }
 
@@ -1214,19 +1214,19 @@ static int isSCint (expdesc *e) {
 ** Check whether expression 'e' is a literal integer or float in
 ** proper range to fit in a register (sB or sC).
 */
-static int isSCnumber (expdesc *e, int *pi, int *isfloat) {
+static bool isSCnumber (expdesc *e, int *pi, int *isfloat) {
   lua_Integer i;
   if (e->k == VKINT)
     i = e->u.ival;
   else if (e->k == VKFLT && luaV_flttointeger(e->u.nval, &i, F2Ieq))
     *isfloat = 1;
   else
-    return 0;  /* not a number */
+    return false;  /* not a number */
   if (!hasjumps(e) && fitsC(i)) {
     *pi = int2sC(cast_int(i));
-    return 1;
+    return true;
   }
-  return 0;
+  return false;
 }
 
 
@@ -1272,7 +1272,7 @@ void luaK_indexed (FuncState *fs, expdesc *t, expdesc *k) {
 ** Bitwise operations need operands convertible to integers; division
 ** operations cannot have 0 as divisor.
 */
-static int validop (int op, TValue *v1, TValue *v2) {
+static bool validop (int op, TValue *v1, TValue *v2) {
   switch (op) {
     case LUA_OPBAND: case LUA_OPBOR: case LUA_OPBXOR:
     case LUA_OPSHL: case LUA_OPSHR: case LUA_OPBNOT: {  /* conversion errors */
@@ -1281,7 +1281,7 @@ static int validop (int op, TValue *v1, TValue *v2) {
     }
     case LUA_OPDIV: case LUA_OPIDIV: case LUA_OPMOD:  /* division by 0 */
       return (nvalue(v2) != 0);
-    default: return 1;  /* everything else is valid */
+    default: return true;  /* everything else is valid */
   }
 }
 
@@ -1290,11 +1290,10 @@ static int validop (int op, TValue *v1, TValue *v2) {
 ** Try to "constant-fold" an operation; return 1 iff successful.
 ** (In this case, 'e1' has the final result.)
 */
-static int constfolding (FuncState *fs, int op, expdesc *e1,
-                                        const expdesc *e2) {
+static bool constfolding (FuncState *fs, int op, expdesc *e1, const expdesc *e2) {
   TValue v1, v2, res;
   if (!tonumeral(e1, &v1) || !tonumeral(e2, &v2) || !validop(op, &v1, &v2))
-    return 0;  /* non-numeric operands or not safe to fold */
+    return false;  /* non-numeric operands or not safe to fold */
   luaO_rawarith(fs->ls->L, op, &v1, &v2, &res);  /* does operation */
   if (ttisinteger(&res)) {
     e1->k = VKINT;
@@ -1303,11 +1302,11 @@ static int constfolding (FuncState *fs, int op, expdesc *e1,
   else {  /* folds neither NaN nor 0.0 (to avoid problems with -0.0) */
     lua_Number n = fltvalue(&res);
     if (luai_numisnan(n) || n == 0)
-      return 0;
+      return false;
     e1->k = VKFLT;
     e1->u.nval = n;
   }
-  return 1;
+  return true;
 }
 
 
@@ -1361,9 +1360,8 @@ static void codebinexpval (FuncState *fs, OpCode op,
 /*
 ** Code binary operators with immediate operands.
 */
-static void codebini (FuncState *fs, OpCode op,
-                       expdesc *e1, expdesc *e2, int flip, int line,
-                       TMS event) {
+static void codebini (FuncState *fs, OpCode op, expdesc *e1, expdesc *e2,
+		      int flip, int line, TMS event) {
   int v2 = int2sC(cast_int(e2->u.ival));  /* immediate operand */
   lua_assert(e2->k == VKINT);
   finishbinexpval(fs, e1, e2, op, v2, flip, line, OP_MMBINI, event);
@@ -1373,21 +1371,21 @@ static void codebini (FuncState *fs, OpCode op,
 /* Try to code a binary operator negating its second operand.
 ** For the metamethod, 2nd operand must keep its original value.
 */
-static int finishbinexpneg (FuncState *fs, expdesc *e1, expdesc *e2,
+static bool finishbinexpneg (FuncState *fs, expdesc *e1, expdesc *e2,
                              OpCode op, int line, TMS event) {
   if (!luaK_isKint(e2))
-    return 0;  /* not an integer constant */
+    return false;  /* not an integer constant */
 
   lua_Integer i2 = e2->u.ival;
   if (!(fitsC(i2) && fitsC(-i2)))
-    return 0;  /* not in the proper range */
+    return false;  /* not in the proper range */
 
   /* operating a small integer constant */
   int v2 = cast_int(i2);
   finishbinexpval(fs, e1, e2, op, int2sC(-v2), 0, line, OP_MMBINI, event);
   /* correct metamethod argument */
   SETARG_B(fs->f->code[fs->pc - 1], int2sC(v2));
-  return 1;  /* successfully coded */
+  return true;  /* successfully coded */
 }
 
 

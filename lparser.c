@@ -677,20 +677,20 @@ static void close_func (LexState *ls) {
 ** 'until' closes syntactical blocks, but do not close scope,
 ** so it is handled in separate.
 */
-static int block_follow (LexState *ls, int withuntil) {
+static bool block_follow (LexState *ls, bool withuntil) {
   switch (static_cast<int>(ls->t)) {
     case TK_ELSE: case TK_ELSEIF:
     case TK_END: case TK_EOS:
-      return 1;
+      return true;
     case TK_UNTIL: return withuntil;
-    default: return 0;
+    default: return false;
   }
 }
 
 
 static void statlist (LexState *ls) {
   /* statlist -> { stat [';'] } */
-  while (!block_follow(ls, 1)) {
+  while (!block_follow(ls, true)) {
     if (ls->t == TK_RETURN) {
       statement(ls);
       return;  /* 'return' must be last statement */
@@ -739,7 +739,7 @@ struct ConsControl {
 static void recfield (LexState *ls, ConsControl *cc) {
   /* recfield -> (NAME | '['exp']') = exp */
   FuncState *fs = ls->fs;
-  int reg = ls->fs->freereg;
+  int reg = fs->freereg;
   expdesc tab, key, val;
   if (ls->t == TK_NAME) {
     checklimit(fs, cc->nh, MAX_INT, "items in a constructor");
@@ -1357,19 +1357,17 @@ static void labelstat (LexState *ls, TString *name, int line) {
   while (ls->t == ';' || ls->t == TK_DBCOLON)
     statement(ls);  /* skip other no-op statements */
   checkrepeated(ls, name);  /* check for repeated labels */
-  createlabel(ls, name, line, block_follow(ls, 0));
+  createlabel(ls, name, line, block_follow(ls, false));
 }
 
 
 static void whilestat (LexState *ls, int line) {
   /* whilestat -> WHILE cond DO block END */
   FuncState *fs = ls->fs;
-  int whileinit;
-  int condexit;
   BlockCnt bl;
   ls->next_token();  /* skip WHILE */
-  whileinit = luaK_getlabel(fs);
-  condexit = cond(ls);
+  int whileinit = luaK_getlabel(fs);
+  int condexit = cond(ls);
   enterblock(fs, &bl, 1);
   checknext(ls, TK_DO);
   block(ls);
@@ -1382,7 +1380,6 @@ static void whilestat (LexState *ls, int line) {
 
 static void repeatstat (LexState *ls, int line) {
   /* repeatstat -> REPEAT block UNTIL cond */
-  int condexit;
   FuncState *fs = ls->fs;
   int repeat_init = luaK_getlabel(fs);
   BlockCnt bl1, bl2;
@@ -1391,7 +1388,7 @@ static void repeatstat (LexState *ls, int line) {
   ls->next_token();  /* skip REPEAT */
   statlist(ls);
   check_match(ls, TK_UNTIL, TK_REPEAT, line);
-  condexit = cond(ls);  /* read condition (inside scope block) */
+  int condexit = cond(ls);  /* read condition (inside scope block) */
   leaveblock(fs);  /* finish scope */
   if (bl2.upval) {  /* upvalues? */
     int exit = luaK_jump(fs);  /* normal exit must jump over fix */
@@ -1544,7 +1541,7 @@ static void test_then_block (LexState *ls, int *escapelist) {
     enterblock(fs, &bl, 0);  /* must enter block before 'goto' */
     newgotoentry(ls, luaS_newliteral(ls->L, "break"), line, v.t);
     while (testnext(ls, ';')) {}  /* skip semicolons */
-    if (block_follow(ls, 0)) {  /* jump is the entire block? */
+    if (block_follow(ls, false)) {  /* jump is the entire block? */
       leaveblock(fs);
       return;  /* and that is it */
     }
@@ -1707,7 +1704,7 @@ static void retstat (LexState *ls) {
   expdesc e;
   int nret;  /* number of values being returned */
   int first = luaY_nvarstack(fs);  /* first slot to be returned */
-  if (block_follow(ls, 1) || ls->t == ';')
+  if (block_follow(ls, true) || ls->t == ';')
     nret = 0;  /* return no values */
   else {
     nret = explist(ls, &e);  /* optional return values */
