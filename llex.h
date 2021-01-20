@@ -83,9 +83,9 @@ public:
     return *this;
   }
 
-  operator lua_Integer() const { assert(token == TK_INT); return ival; }
-  operator lua_Number() const { assert(token == TK_FLT); return rval; }
-  operator TString *() const { assert(token == TK_STRING || token == TK_NAME); return sval; }
+  operator lua_Integer() const { lua_assert(token == TK_INT); return ival; }
+  operator lua_Number() const { lua_assert(token == TK_FLT); return rval; }
+  operator TString *() const { lua_assert(token == TK_STRING || token == TK_NAME); return sval; }
 
   operator int() const { return token; }
 
