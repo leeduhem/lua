@@ -10,9 +10,8 @@
 
 #include "lstate.h"
 
-
-inline int pcRel(const Instruction *pc, const Proto *p) {
-  return cast_int(pc - p->code) - 1;
+inline int pcRel(int pc, const Proto *) {
+  return pc - 1;
 }
 
 /* Active Lua function (given call info) */
@@ -41,7 +40,7 @@ LUAI_FUNC l_noret luaG_ordererror (lua_State *L, const TValue *p1, const TValue 
 LUAI_FUNC l_noret luaG_runerror (lua_State *L, const char *fmt, ...);
 LUAI_FUNC const char *luaG_addinfo (lua_State *L, const char *msg, TString *src, int line);
 LUAI_FUNC l_noret luaG_errormsg (lua_State *L);
-LUAI_FUNC int luaG_traceexec (lua_State *L, const Instruction *pc);
+LUAI_FUNC bool luaG_traceexec (lua_State *L, int pc);
 
 
 #endif

@@ -780,11 +780,12 @@ static void pushclosure (lua_State *L, Proto *p, UpVal **encup, StkId base, StkI
 void luaV_finishOp (lua_State *L) {
   CallInfo *ci = L->ci;
   StkId base = ci->func + 1;
-  Instruction inst = *(ci->u.l.savedpc - 1);  /* interrupted instruction */
+  const Proto *p = ci_func(ci)->p;
+  Instruction inst = p->code[ci->u.l.savedpc - 1]; // interrupted instruction
   OpCode op = GET_OPCODE(inst);
   switch (op) {  /* finish its execution */
     case OP_MMBIN: case OP_MMBINI: case OP_MMBINK: {
-      setobjs2s(L, base + GETARG_A(*(ci->u.l.savedpc - 2)), --L->top);
+      setobjs2s(L, base + GETARG_A(p->code[ci->u.l.savedpc - 2]), --L->top);
       break;
     }
     case OP_UNM: case OP_BNOT: case OP_LEN:
@@ -805,7 +806,7 @@ void luaV_finishOp (lua_State *L) {
         res = !res;  /* negate result */
       }
 #endif
-      lua_assert(GET_OPCODE(*ci->u.l.savedpc) == OP_JMP);
+      lua_assert(GET_OPCODE(p->code[ci->u.l.savedpc]) == OP_JMP);
       if (res != GETARG_k(inst))  /* condition failed? */
         ci->u.l.savedpc++;  /* skip jump instruction */
       break;
@@ -1057,7 +1058,7 @@ inline int l_gei(lua_Integer a, lua_Integer b) { return a >= b; }
 /*
 ** Correct global 'pc'.
 */
-#define savepc(L)	(ci->u.l.savedpc = pc)
+#define savepc(L)	(ci->u.l.savedpc = pc - &cl->p->code[0])
 
 
 /*
@@ -1092,7 +1093,7 @@ inline int l_gei(lua_Integer a, lua_Integer b) { return a >= b; }
 /* fetch an instruction and prepare its execution */
 #define vmfetch()	{ \
   if (trap) {  /* stack reallocation or hooks? */ \
-    trap = luaG_traceexec(L, pc);  /* handle hooks */ \
+    trap = luaG_traceexec(L, pc - &cl->p->code[0]);  /* handle hooks */ \
     updatebase(ci);  /* correct stack */ \
   } \
   i = *(pc++); \
@@ -1117,9 +1118,9 @@ void luaV_execute (lua_State *L, CallInfo *ci) {
  returning:  /* trap already set */
   cl = clLvalue(s2v(ci->func));
   auto &k = cl->p->k;
-  pc = ci->u.l.savedpc;
+  pc = &cl->p->code[ci->u.l.savedpc];
   if (trap) {
-    if (pc == cl->p->code) {  /* first instruction (not resuming)? */
+    if (pc == &cl->p->code[0]) {  /* first instruction (not resuming)? */
       if (cl->p->is_vararg)
         trap = 0;  /* hooks will start after VARARGPREP instruction */
       else  /* check 'call' hook */

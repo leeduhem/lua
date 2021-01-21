@@ -407,8 +407,7 @@ static int lua_checkpc (CallInfo *ci) {
 
   StkId f = ci->func;
   Proto *p = clLvalue(s2v(f))->p;
-  return p->code <= ci->u.l.savedpc &&
-    ci->u.l.savedpc <= p->code + p->sizecode;
+  return 0 <= ci->u.l.savedpc && ci->u.l.savedpc <= cast_int(p->code.size());
 }
 
 
@@ -700,7 +699,7 @@ static int listcode (lua_State *L) {
   lua_newtable(L);
   setnameval(L, "maxstack", p->maxstacksize);
   setnameval(L, "numparams", p->numparams);
-  for (int pc=0; pc<p->sizecode; pc++) {
+  for (int pc = 0; pc < cast_int(p->code.size()); ++pc) {
     char buff[100];
     lua_pushinteger(L, pc+1);
     lua_pushstring(L, buildop(p, pc, buff));
@@ -716,7 +715,7 @@ static int printcode (lua_State *L) {
   Proto *p = getproto(obj_at(L, 1));
   printf("maxstack: %d\n", p->maxstacksize);
   printf("numparams: %d\n", p->numparams);
-  for (int pc=0; pc<p->sizecode; pc++) {
+  for (int pc = 0; pc < cast_int(p->code.size()); ++pc) {
     char buff[100];
     printf("%s\n", buildop(p, pc, buff));
   }

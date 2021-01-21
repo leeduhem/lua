@@ -101,8 +101,8 @@ static void dumpString (DumpState *D, const TString *s) {
 
 
 static void dumpCode (DumpState *D, const Proto *f) {
-  dumpInt(D, f->sizecode);
-  dumpVector(D, f->code, f->sizecode);
+  dumpInt(D, f->code.size());
+  dumpVector(D, f->code.data(), f->code.size());
 }
 
 

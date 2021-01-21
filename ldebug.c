@@ -33,7 +33,7 @@
 inline bool noLuaClosure(Closure *f) { return f == nullptr || f->c.tt == LUA_VCCL; }
 
 /* inverse of 'pcRel' */
-inline Instruction *invpcRel(int pc, const Proto *p) { return &p->code[pc + 1]; }
+inline int invpcRel(int pc, const Proto *) { return pc + 1; }
 
 static const char *funcnamefromcode (lua_State *L, CallInfo *ci, const char **name);
 
@@ -785,15 +785,15 @@ static int changedline (const Proto *p, int oldpc, int newpc) {
 ** reset to zero.  (A wrong but valid 'oldpc' at most causes an extra
 ** call to a line hook.)
 */
-int luaG_traceexec (lua_State *L, const Instruction *pc) {
+bool luaG_traceexec (lua_State *L, int pc) {
   CallInfo *ci = L->ci;
   lu_byte mask = L->hookmask;
   const Proto *p = ci_func(ci)->p;
   /* 'L->oldpc' may be invalid; reset it in this case */
-  int oldpc = (L->oldpc < p->sizecode) ? L->oldpc : 0;
+  int oldpc = (L->oldpc < cast_int(p->code.size())) ? L->oldpc : 0;
   if (!(mask & (LUA_MASKLINE | LUA_MASKCOUNT))) {  /* no hooks? */
     ci->u.l.trap = 0;  /* don't need to stop again */
-    return 0;  /* turn off 'trap' */
+    return false;  /* turn off 'trap' */
   }
   pc++;  /* reference is always next instruction */
   ci->u.l.savedpc = pc;  /* save 'pc' */
@@ -801,12 +801,12 @@ int luaG_traceexec (lua_State *L, const Instruction *pc) {
   if (counthook)
     resethookcount(L);  /* reset count */
   else if (!(mask & LUA_MASKLINE))
-    return 1;  /* no line hook and count != 0; nothing to be done now */
+    return true;  /* no line hook and count != 0; nothing to be done now */
   if (ci->callstatus & CIST_HOOKYIELD) {  /* called hook last time? */
     ci->callstatus &= ~CIST_HOOKYIELD;  /* erase mark */
-    return 1;  /* do not call hook again (VM yielded, so it did not move) */
+    return true;  /* do not call hook again (VM yielded, so it did not move) */
   }
-  if (!isIT(*(ci->u.l.savedpc - 1)))
+  if (!isIT(p->code[ci->u.l.savedpc - 1]))
     L->top = ci->top;  /* prepare top */
   if (counthook)
     luaD_hook(L, LUA_HOOKCOUNT, -1, 0, 0);  /* call count hook */
@@ -827,6 +827,6 @@ int luaG_traceexec (lua_State *L, const Instruction *pc) {
     ci->callstatus |= CIST_HOOKYIELD;  /* mark that it yielded */
     luaD_throw(L, LUA_YIELD);
   }
-  return 1;  /* keep 'trap' on */
+  return true;  /* keep 'trap' on */
 }
 

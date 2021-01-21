@@ -660,7 +660,7 @@ static void close_func (LexState *ls) {
   leaveblock(fs);
   lua_assert(fs->blocks.empty());
   luaK_finish(fs);
-  luaM_shrinkvector(L, f->code, f->sizecode, fs->pc, Instruction);
+  f->code.resize(fs->pc);
   ls->fs = fs->prev;
   luaC_checkGC(L);
 }

@@ -366,6 +366,7 @@ static void removelastlineinfo (FuncState *fs) {
 static void removelastinstruction (FuncState *fs) {
   removelastlineinfo(fs);
   fs->pc--;
+  fs->f->code.pop_back();
 }
 
 
@@ -376,9 +377,10 @@ static void removelastinstruction (FuncState *fs) {
 int luaK_code (FuncState *fs, Instruction i) {
   Proto *f = fs->f;
   /* put new instruction in code array */
-  luaM_growvector(fs->ls->L, f->code, fs->pc, f->sizecode, Instruction,
-                  MAX_INT, "opcodes");
-  f->code[fs->pc++] = i;
+  lua_assert((!fs->pc && f->code.empty())
+	     || (cast_sizet(fs->pc) == f->code.size()));
+  f->code.push_back(i);
+  fs->pc++;
   savelineinfo(fs, f, fs->ls->lastline);
   return fs->pc - 1;  /* index of new instruction */
 }
@@ -1774,7 +1776,7 @@ void luaK_finish (FuncState *fs) {
         break;
       }
       case OP_JMP: {
-        int target = finaltarget(p->code, i);
+        int target = finaltarget(p->code.data(), i);
         fixjump(fs, i, target);
         break;
       }
