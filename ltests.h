@@ -45,7 +45,7 @@
 
 
 /* memory-allocator control variables */
-typedef struct Memcontrol {
+struct Memcontrol {
   int failnext;
   unsigned long numblocks;
   unsigned long total;
@@ -53,7 +53,7 @@ typedef struct Memcontrol {
   unsigned long memlimit;
   unsigned long countlimit;
   unsigned long objcount[LUA_NUMTYPES];
-} Memcontrol;
+};
 
 LUA_API Memcontrol l_memcontrol;
 
@@ -62,7 +62,6 @@ LUA_API Memcontrol l_memcontrol;
 ** generic variable for debug tricks
 */
 extern void *l_Trick;
-
 
 
 /*
@@ -98,8 +97,7 @@ struct L_EXTRA { int lock; int *plock; };
 
 LUA_API int luaB_opentests (lua_State *L);
 
-LUA_API void *debug_realloc (void *ud, void *block,
-                             size_t osize, size_t nsize);
+LUA_API void *debug_realloc (void *ud, void *block, size_t osize, size_t nsize);
 
 #if defined(lua_c)
 #define luaL_newstate()		lua_newstate(debug_realloc, &l_memcontrol)
@@ -121,9 +119,6 @@ LUA_API void *debug_realloc (void *ud, void *block,
 #define STRCACHE_N	23
 #define STRCACHE_M	5
 
-#undef LUAI_USER_ALIGNMENT_T
-#define LUAI_USER_ALIGNMENT_T   union { char b[sizeof(void*) * 8]; }
-
 
 /* make stack-overflow tests run faster */
 #undef LUAI_MAXSTACK
@@ -136,4 +131,3 @@ LUA_API void *debug_realloc (void *ud, void *block,
 
 
 #endif
-

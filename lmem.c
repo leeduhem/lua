@@ -62,65 +62,6 @@ static void *firsttry (global_State *g, void *block, size_t os, size_t ns) {
 */
 
 
-
-
-/*
-** {==================================================================
-** Functions to allocate/deallocate arrays for the Parser
-** ===================================================================
-*/
-
-/*
-** Minimum size for arrays during parsing, to avoid overhead of
-** reallocating to size 1, then 2, and then 4. All these arrays
-** will be reallocated to exact sizes or erased when parsing ends.
-*/
-constexpr int MINSIZEARRAY = 4;
-
-
-void *luaM_growaux_ (lua_State *L, void *block, int nelems, int *psize,
-                     int size_elems, int limit, const char *what) {
-  int size = *psize;
-  if (nelems + 1 <= size)  /* does one extra element still fit? */
-    return block;  /* nothing to be done */
-  if (size >= limit / 2) {  /* cannot double it? */
-    if (unlikely(size >= limit))  /* cannot grow even a little? */
-      luaG_runerror(L, "too many %s (limit is %d)", what, limit);
-    size = limit;  /* still have at least one free place */
-  }
-  else {
-    size *= 2;
-    if (size < MINSIZEARRAY)
-      size = MINSIZEARRAY;  /* minimum size */
-  }
-  lua_assert(nelems + 1 <= size && size <= limit);
-  /* 'limit' ensures that multiplication will not overflow */
-  void *newblock = luaM_saferealloc_(L, block, cast_sizet(*psize) * size_elems,
-				     cast_sizet(size) * size_elems);
-  *psize = size;  /* update only when everything else is OK */
-  return newblock;
-}
-
-
-/*
-** In prototypes, the size of the array is also its number of
-** elements (to save memory). So, if it cannot shrink an array
-** to its number of elements, the only option is to raise an
-** error.
-*/
-void *luaM_shrinkvector_ (lua_State *L, void *block, int *size,
-                          int final_n, int size_elem) {
-  size_t oldsize = cast_sizet((*size) * size_elem);
-  size_t newsize = cast_sizet(final_n * size_elem);
-  lua_assert(newsize <= oldsize);
-  void *newblock = luaM_saferealloc_(L, block, oldsize, newsize);
-  *size = final_n;
-  return newblock;
-}
-
-/* }================================================================== */
-
-
 l_noret luaM_toobig (lua_State *L) {
   luaG_runerror(L, "memory allocation error: block too big");
 }
