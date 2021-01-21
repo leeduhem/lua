@@ -87,7 +87,7 @@ public:
   operator lua_Number() const { lua_assert(token == TK_FLT); return rval; }
   operator TString *() const { lua_assert(token == TK_STRING || token == TK_NAME); return sval; }
 
-  operator int() const { return token; }
+  explicit operator int() const { return token; }
 
 private:
   int token;  // discriminant
@@ -163,7 +163,7 @@ public:
   TString *new_string (const char *str, size_t l);
   void next_token ();
   int lookahead_token ();
-  l_noret syntax_error (const char *msg) { lexerror(msg, t); }
+  l_noret syntax_error (const char *msg) { lexerror(msg, static_cast<int>(t)); }
   const char *token2str (int token);
 
 private:

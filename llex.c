@@ -513,5 +513,5 @@ void LexState::next_token () {
 int LexState::lookahead_token () {
   lua_assert(lookahead == TK_EOS);
   lookahead = llex();
-  return lookahead;
+  return static_cast<int>(lookahead);
 }

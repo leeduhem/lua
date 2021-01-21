@@ -1150,7 +1150,7 @@ static const struct {
 */
 static BinOpr subexpr (LexState *ls, expdesc *v, int limit) {
   enterlevel(ls);
-  UnOpr uop = getunopr(ls->t);
+  UnOpr uop = getunopr(static_cast<int>(ls->t));
   if (uop != OPR_NOUNOPR) {  /* prefix (unary) operator? */
     int line = ls->linenumber;
     ls->next_token();  /* skip operator */
@@ -1159,7 +1159,7 @@ static BinOpr subexpr (LexState *ls, expdesc *v, int limit) {
   }
   else simpleexp(ls, v);
   /* expand while operators have priorities higher than 'limit' */
-  BinOpr op = getbinopr(ls->t);
+  BinOpr op = getbinopr(static_cast<int>(ls->t));
   while (op != OPR_NOBINOPR && priority[op].left > limit) {
     expdesc v2;
     int line = ls->linenumber;

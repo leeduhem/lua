@@ -127,7 +127,8 @@ typedef std::vector<Labeldesc, lua::allocator<Labeldesc>> Labellist;
 
 /* dynamic structures used by the parser */
 struct Dyndata {
-  std::vector<Vardesc, lua::allocator<Vardesc>> actvar;  // list of all active local variables
+  // list of all active local variables
+  std::vector<Vardesc, lua::allocator<Vardesc>> actvar;
   Labellist gt;  /* list of pending gotos */
   Labellist label;   /* list of active labels */
 
@@ -148,7 +149,8 @@ struct FuncState {
   Proto *f = nullptr;  /* current function header */
   struct FuncState *prev = nullptr;  /* enclosing function */
   struct LexState *ls = nullptr;  /* lexical state */
-  std::vector<BlockCnt *, lua::allocator<BlockCnt *>> blocks; // chain of current blocks
+  // chain of current blocks
+  std::vector<BlockCnt *, lua::allocator<BlockCnt *>> blocks;
   int pc = 0;  /* next position to code (equivalent to 'ncode') */
   int lasttarget = 0;   /* 'label' of last 'jump label' */
   int previousline = 0;  /* last line that was saved in 'lineinfo' */
