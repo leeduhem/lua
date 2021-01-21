@@ -129,7 +129,7 @@ static void settraps (CallInfo *ci) {
 ** before being called (see 'luaD_hook').
 */
 LUA_API void lua_sethook (lua_State *L, lua_Hook func, int mask, int count) {
-  if (func == nullptr || mask == 0) {  /* turn off hooks? */
+  if (!func || !mask) {  /* turn off hooks? */
     mask = 0;
     func = nullptr;
   }
@@ -290,19 +290,19 @@ static void collectvalidlines (lua_State *L, Closure *f) {
   if (noLuaClosure(f)) {
     setnilvalue(s2v(L->top));
     api_incr_top(L);
+    return;
   }
-  else {
-    TValue v;
-    const Proto *p = f->l.p;
-    int currentline = p->linedefined;
-    Table *t = luaH_new(L);  /* new table to store active lines */
-    sethvalue2s(L, L->top, t);  /* push it on stack */
-    api_incr_top(L);
-    setbtvalue(&v);  /* boolean 'true' to be the value of all indices */
-    for (size_t i = 0; i < p->lineinfo.size(); i++) {  /* for all lines with code */
-      currentline = nextline(p, currentline, i);
-      luaH_setint(L, t, currentline, &v);  /* table[line] = true */
-    }
+
+  TValue v;
+  const Proto *p = f->l.p;
+  int currentline = p->linedefined;
+  Table *t = luaH_new(L);  /* new table to store active lines */
+  sethvalue2s(L, L->top, t);  /* push it on stack */
+  api_incr_top(L);
+  setbtvalue(&v);  /* boolean 'true' to be the value of all indices */
+  for (size_t i = 0; i < p->lineinfo.size(); i++) {  /* for all lines with code */
+    currentline = nextline(p, currentline, i);
+    luaH_setint(L, t, currentline, &v);  /* table[line] = true */
   }
 }
 
@@ -763,14 +763,14 @@ l_noret luaG_runerror (lua_State *L, const char *fmt, ...) {
 ** Check whether new instruction 'newpc' is in a different line from
 ** previous instruction 'oldpc'.
 */
-static int changedline (const Proto *p, int oldpc, int newpc) {
+static bool changedline (const Proto *p, int oldpc, int newpc) {
   if (p->lineinfo.empty())  /* no debug information? */
-    return 0;
+    return false;
   while (oldpc++ < newpc) {
     if (p->lineinfo[oldpc])
       return (luaG_getfuncline(p, oldpc - 1) != luaG_getfuncline(p, newpc));
   }
-  return 0;  /* no line changes between positions */
+  return false;  /* no line changes between positions */
 }
 
 

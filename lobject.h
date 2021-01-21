@@ -829,7 +829,7 @@ constexpr int UTF8BUFFSZ = 8;
 
 LUAI_FUNC int luaO_utf8esc (char *buff, unsigned long x);
 LUAI_FUNC int luaO_ceillog2 (unsigned int x);
-LUAI_FUNC int luaO_rawarith (lua_State *L, int op, const TValue *p1, const TValue *p2, TValue *res);
+LUAI_FUNC bool luaO_rawarith (lua_State *L, int op, const TValue *p1, const TValue *p2, TValue *res);
 LUAI_FUNC void luaO_arith (lua_State *L, int op, const TValue *p1, const TValue *p2, StkId res);
 LUAI_FUNC size_t luaO_str2num (const char *s, TValue *o);
 LUAI_FUNC int luaO_hexavalue (int c);

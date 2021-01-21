@@ -73,8 +73,7 @@ static lua_Integer intarith (lua_State *L, int op, lua_Integer v1,
 }
 
 
-static lua_Number numarith (lua_State *L, int op, lua_Number v1,
-                                                  lua_Number v2) {
+static lua_Number numarith (lua_State *L, int op, lua_Number v1, lua_Number v2) {
   switch (op) {
     case LUA_OPADD: return luai_numadd(L, v1, v2);
     case LUA_OPSUB: return luai_numsub(L, v1, v2);
@@ -89,8 +88,7 @@ static lua_Number numarith (lua_State *L, int op, lua_Number v1,
 }
 
 
-int luaO_rawarith (lua_State *L, int op, const TValue *p1, const TValue *p2,
-                   TValue *res) {
+bool luaO_rawarith (lua_State *L, int op, const TValue *p1, const TValue *p2, TValue *res) {
   switch (op) {
     case LUA_OPBAND: case LUA_OPBOR: case LUA_OPBXOR:
     case LUA_OPSHL: case LUA_OPSHR:
@@ -98,36 +96,35 @@ int luaO_rawarith (lua_State *L, int op, const TValue *p1, const TValue *p2,
       lua_Integer i1; lua_Integer i2;
       if (tointegerns(p1, &i1) && tointegerns(p2, &i2)) {
         setivalue(res, intarith(L, op, i1, i2));
-        return 1;
+        return true;
       }
-      else return 0;  /* fail */
+      return false;  /* fail */
     }
     case LUA_OPDIV: case LUA_OPPOW: {  /* operate only on floats */
       lua_Number n1; lua_Number n2;
       if (tonumberns(p1, n1) && tonumberns(p2, n2)) {
         setfltvalue(res, numarith(L, op, n1, n2));
-        return 1;
+        return true;
       }
-      else return 0;  /* fail */
+      return false;  /* fail */
     }
     default: {  /* other operations */
       lua_Number n1; lua_Number n2;
       if (ttisinteger(p1) && ttisinteger(p2)) {
         setivalue(res, intarith(L, op, ivalue(p1), ivalue(p2)));
-        return 1;
+        return true;
       }
-      else if (tonumberns(p1, n1) && tonumberns(p2, n2)) {
+      if (tonumberns(p1, n1) && tonumberns(p2, n2)) {
         setfltvalue(res, numarith(L, op, n1, n2));
-        return 1;
+        return true;
       }
-      else return 0;  /* fail */
+      return false;  /* fail */
     }
   }
 }
 
 
-void luaO_arith (lua_State *L, int op, const TValue *p1, const TValue *p2,
-                 StkId res) {
+void luaO_arith (lua_State *L, int op, const TValue *p1, const TValue *p2, StkId res) {
   if (!luaO_rawarith(L, op, p1, p2, s2v(res))) {
     /* could not perform raw operation; try metamethod */
     luaT_trybinTM(L, p1, p2, res, cast(TMS, (op - LUA_OPADD) + TM_ADD));
@@ -137,14 +134,14 @@ void luaO_arith (lua_State *L, int op, const TValue *p1, const TValue *p2,
 
 int luaO_hexavalue (int c) {
   if (lisdigit(c)) return c - '0';
-  else return (ltolower(c) - 'a') + 10;
+  return (ltolower(c) - 'a') + 10;
 }
 
 
-static int isneg (const char **s) {
-  if (**s == '-') { (*s)++; return 1; }
-  else if (**s == '+') (*s)++;
-  return 0;
+static bool isneg (const char **s) {
+  if (**s == '-') { (*s)++; return true; }
+  if (**s == '+') (*s)++;
+  return false;
 }
 
 
@@ -159,7 +156,7 @@ static int isneg (const char **s) {
 
 /* maximum number of significant digits to read (to avoid overflows
    even with single floats) */
-#define MAXSIGDIG	30
+constexpr int MAXSIGDIG = 30;
 
 /*
 ** convert a hexadecimal numeric string to a number, following
@@ -174,7 +171,7 @@ static lua_Number lua_strx2number (const char *s, char **endptr) {
   int hasdot = 0;  /* true after seen a dot */
   *endptr = cast_charp(s);  /* nothing is valid yet */
   while (lisspace(cast_uchar(*s))) s++;  /* skip initial spaces */
-  int neg = isneg(&s);  /* check sign */
+  bool neg = isneg(&s);  /* check sign */
   if (!(*s == '0' && (*(s + 1) == 'x' || *(s + 1) == 'X')))  /* check '0x' */
     return 0.0;  /* invalid format (no '0x') */
   for (s += 2; ; s++) {  /* skip '0x' and read numeral */
@@ -197,10 +194,9 @@ static lua_Number lua_strx2number (const char *s, char **endptr) {
   *endptr = cast_charp(s);  /* valid up to here */
   e *= 4;  /* each digit multiplies/divides value by 2^4 */
   if (*s == 'p' || *s == 'P') {  /* exponent part? */
-    int exp1 = 0;  /* exponent value */
-    int neg1;  /* exponent sign */
     s++;  /* skip 'p' */
-    neg1 = isneg(&s);  /* sign */
+    int exp1 = 0;  /* exponent value */
+    bool neg1 = isneg(&s);  /* exponent sign */
     if (!lisdigit(cast_uchar(*s)))
       return 0.0;  /* invalid; must have at least one digit */
     while (lisdigit(cast_uchar(*s)))  /* read exponent */
@@ -219,7 +215,7 @@ static lua_Number lua_strx2number (const char *s, char **endptr) {
 
 /* maximum length of a numeral to be converted to a number */
 #if !defined (L_MAXLENNUM)
-#define L_MAXLENNUM	200
+constexpr int L_MAXLENNUM = 200;
 #endif
 
 /*
@@ -231,9 +227,9 @@ static const char *l_str2dloc (const char *s, lua_Number *result, int mode) {
   char *endptr;
   *result = (mode == 'x') ? lua_strx2number(s, &endptr)  /* try to convert */
                           : lua_str2number(s, &endptr);
-  if (endptr == s) return NULL;  /* nothing recognized? */
+  if (endptr == s) return nullptr;  /* nothing recognized? */
   while (lisspace(cast_uchar(*endptr))) endptr++;  /* skip trailing spaces */
-  return (*endptr == '\0') ? endptr : NULL;  /* OK iff no trailing chars */
+  return (*endptr == '\0') ? endptr : nullptr;  /* OK iff no trailing chars */
 }
 
 
@@ -254,31 +250,31 @@ static const char *l_str2d (const char *s, lua_Number *result) {
   const char *pmode = strpbrk(s, ".xXnN");  /* look for special chars */
   int mode = pmode ? ltolower(cast_uchar(*pmode)) : 0;
   if (mode == 'n')  /* reject 'inf' and 'nan' */
-    return NULL;
+    return nullptr;
   const char *endptr = l_str2dloc(s, result, mode);  /* try to convert */
-  if (endptr == NULL) {  /* failed? may be a different locale */
+  if (!endptr) {  /* failed? may be a different locale */
     char buff[L_MAXLENNUM + 1];
     const char *pdot = strchr(s, '.');
-    if (pdot == NULL || strlen(s) > L_MAXLENNUM)
-      return NULL;  /* string too long or no dot; fail */
+    if (!pdot || strlen(s) > L_MAXLENNUM)
+      return nullptr;  /* string too long or no dot; fail */
     strcpy(buff, s);  /* copy string to buffer */
     buff[pdot - s] = lua_getlocaledecpoint();  /* correct decimal point */
     endptr = l_str2dloc(buff, result, mode);  /* try again */
-    if (endptr != NULL)
+    if (endptr)
       endptr = s + (endptr - buff);  /* make relative to 's' */
   }
   return endptr;
 }
 
 
-#define MAXBY10		cast(lua_Unsigned, LUA_MAXINTEGER / 10)
-#define MAXLASTD	cast_int(LUA_MAXINTEGER % 10)
+constexpr lua_Unsigned MAXBY10 = cast(lua_Unsigned, LUA_MAXINTEGER / 10);
+constexpr int MAXLASTD = cast_int(LUA_MAXINTEGER % 10);
 
 static const char *l_str2int (const char *s, lua_Integer *result) {
   lua_Unsigned a = 0;
   int empty = 1;
   while (lisspace(cast_uchar(*s))) s++;  /* skip initial spaces */
-  int neg = isneg(&s);
+  bool neg = isneg(&s);
   if (s[0] == '0' &&
       (s[1] == 'x' || s[1] == 'X')) {  /* hex? */
     s += 2;  /* skip '0x' */
@@ -291,27 +287,25 @@ static const char *l_str2int (const char *s, lua_Integer *result) {
     for (; lisdigit(cast_uchar(*s)); s++) {
       int d = *s - '0';
       if (a >= MAXBY10 && (a > MAXBY10 || d > MAXLASTD + neg))  /* overflow? */
-        return NULL;  /* do not accept it (as integer) */
+        return nullptr;  /* do not accept it (as integer) */
       a = a * 10 + d;
       empty = 0;
     }
   }
   while (lisspace(cast_uchar(*s))) s++;  /* skip trailing spaces */
-  if (empty || *s != '\0') return NULL;  /* something wrong in the numeral */
-  else {
-    *result = l_castU2S((neg) ? 0u - a : a);
-    return s;
-  }
+  if (empty || *s != '\0') return nullptr;  /* something wrong in the numeral */
+  *result = l_castU2S((neg) ? 0u - a : a);
+  return s;
 }
 
 
 size_t luaO_str2num (const char *s, TValue *o) {
   lua_Integer i; lua_Number n;
   const char *e;
-  if ((e = l_str2int(s, &i)) != NULL) {  /* try as an integer */
+  if ((e = l_str2int(s, &i))) {  /* try as an integer */
     setivalue(o, i);
   }
-  else if ((e = l_str2d(s, &n)) != NULL) {  /* else try as a float */
+  else if ((e = l_str2d(s, &n))) {  /* else try as a float */
     setfltvalue(o, n);
   }
   else
@@ -346,7 +340,7 @@ int luaO_utf8esc (char *buff, unsigned long x) {
 ** the dot, an exponent letter, an exponent sign, 5 exponent digits,
 ** and a final '\0', adding to 43.)
 */
-#define MAXNUMBER2STR	44
+constexpr int MAXNUMBER2STR = 44;
 
 
 /*
@@ -437,9 +431,8 @@ const char *luaO_pushvfstring (lua_State *L, const char *fmt, va_list argp) {
       buff << '%';
       break;
     }
-    default: {
+    default:
       luaG_runerror(L, "invalid option '%%%c' to 'lua_pushfstring'", *(e + 1));
-    }
     }
     fmt = e + 2;  // skip '%' and the specifier
   }
@@ -492,11 +485,11 @@ void luaO_chunkid (char *out, const char *source, size_t srclen) {
     const char *nl = strchr(source, '\n');  /* find first new line (if any) */
     addstr(out, PRE, LL(PRE));  /* add prefix */
     bufflen -= LL(PRE RETS POS) + 1;  /* save space for prefix+suffix+'\0' */
-    if (srclen < bufflen && nl == NULL) {  /* small one-line source? */
+    if (srclen < bufflen && !nl) {  /* small one-line source? */
       addstr(out, source, srclen);  /* keep it */
     }
     else {
-      if (nl != NULL) srclen = nl - source;  /* stop at first newline */
+      if (nl) srclen = nl - source;  /* stop at first newline */
       if (srclen > bufflen) srclen = bufflen;
       addstr(out, source, srclen);
       addstr(out, RETS, LL(RETS));
@@ -505,6 +498,8 @@ void luaO_chunkid (char *out, const char *source, size_t srclen) {
   }
 }
 
-GCObject::GCObject(global_State *g, lu_byte tag) : next(g->allgc), tt(tag), marked(luaC_white(g)) {
+GCObject::GCObject(global_State *g, lu_byte tag)
+  : next(g->allgc), tt(tag), marked(luaC_white(g))
+{
   g->allgc = this;
 }

@@ -42,5 +42,4 @@ LUAI_FUNC const char *luaG_addinfo (lua_State *L, const char *msg, TString *src,
 LUAI_FUNC l_noret luaG_errormsg (lua_State *L);
 LUAI_FUNC bool luaG_traceexec (lua_State *L, int pc);
 
-
 #endif
