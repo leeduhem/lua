@@ -418,8 +418,9 @@ struct TString : public GCObject {
 inline const char *getstr(const TString *ts) { return ts->contents; }
 inline char *getstr(TString *ts) { return ts->contents; }
 
-TString *gco2ts(GCObject *);
-TString *gco2ts(const GCObject *);
+inline TString *gco2ts(GCObject *o) {
+  return check_exp(novariant(o->tt) == LUA_TSTRING, static_cast<TString *>(o));
+}
 
 inline TString *tsvalue(const TValue *o) {
   return check_exp(o->is_string(), gco2ts(static_cast<GCObject *>(*o)));
@@ -505,7 +506,9 @@ inline char *getudatamem(Udata *u) {
 /* compute the size of a userdata */
 inline size_t sizeudata(unsigned short nuv, size_t nb) { return udatamemoffset(nuv) + nb; }
 
-Udata *gco2u(GCObject *);
+inline Udata *gco2u(GCObject *o) {
+  return check_exp(o->tt == LUA_VUSERDATA, static_cast<Udata *>(o));
+}
 
 inline Udata *uvalue(const TValue *o) {
   return check_exp(o->is_full_userdata(), gco2u(static_cast<GCObject *>(*o)));
@@ -608,6 +611,10 @@ struct Proto : public GCObject {
   {}
 };
 
+inline Proto *gco2p(GCObject *o) {
+  return check_exp(o->tt == LUA_VPROTO, static_cast<Proto *>(o));
+}
+
 /* }================================================================== */
 
 
@@ -669,9 +676,21 @@ union Closure {
   LClosure l;
 };
 
-Closure *gco2cl(GCObject *);
-LClosure *gco2lcl(GCObject *);
-CClosure *gco2ccl(GCObject *);
+inline UpVal *gco2upv(GCObject *o) {
+  return check_exp(o->tt == LUA_VUPVAL, static_cast<UpVal *>(o));
+}
+
+inline LClosure *gco2lcl(GCObject *o) {
+  return check_exp(o->tt == LUA_VLCL, static_cast<LClosure *>(o));
+}
+
+inline CClosure *gco2ccl(GCObject *o) {
+  return check_exp(o->tt == LUA_VCCL, static_cast<CClosure *>(o));
+}
+
+inline Closure *gco2cl(GCObject *o) {
+  return check_exp(novariant(o->tt) == LUA_TFUNCTION, reinterpret_cast<Closure *>(o));
+}
 
 inline Closure *clvalue(const TValue *o) {
   return check_exp(o->is_closure(), gco2cl(static_cast<GCObject *>(*o)));
@@ -782,7 +801,9 @@ inline GCObject *gckeyN(const Node *node) {
 inline void setdeadkey(Node *node) { node->key.set_rawtt(LUA_TDEADKEY); }
 inline bool keyisdead(const Node *node) { return keytt(node) == LUA_TDEADKEY; }
 
-Table *gco2t(GCObject *);
+inline Table *gco2t(GCObject *o) {
+  return check_exp(o->tt == LUA_VTABLE, static_cast<Table *>(o));
+}
 
 inline Table *hvalue(const TValue *o) {
   return check_exp(o->is_table(), gco2t(static_cast<GCObject *>(*o)));

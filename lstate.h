@@ -255,6 +255,9 @@ struct lua_State : public GCObject {
   lua_State(global_State *g, lu_byte tag) : GCObject(g, tag) {}
 };
 
+inline lua_State *gco2th(GCObject *o) {
+  return check_exp(o->tt == LUA_VTHREAD, static_cast<lua_State *>(o));
+}
 
 /*
 ** About 'nCcalls':  This count has two parts: the lower 16 bits counts
@@ -325,43 +328,6 @@ union GCUnion {
 ** its members [...], and vice versa."
 */
 #define cast_u(o)	cast(union GCUnion *, (o))
-
-/* Functions to convert a GCObject into a specific value */
-inline TString *gco2ts(GCObject *o) {
-  return check_exp(novariant(o->tt) == LUA_TSTRING, static_cast<TString *>(o));
-}
-
-inline Udata *gco2u(GCObject *o) {
-  return check_exp(o->tt == LUA_VUSERDATA, static_cast<Udata *>(o));
-}
-
-inline LClosure *gco2lcl(GCObject *o) {
-  return check_exp(o->tt == LUA_VLCL, static_cast<LClosure *>(o));
-}
-
-inline CClosure *gco2ccl(GCObject *o) {
-  return check_exp(o->tt == LUA_VCCL, static_cast<CClosure *>(o));
-}
-
-inline Closure *gco2cl(GCObject *o) {
-  return check_exp(novariant(o->tt) == LUA_TFUNCTION, reinterpret_cast<Closure *>(o));
-}
-
-inline Table *gco2t(GCObject *o) {
-  return check_exp(o->tt == LUA_VTABLE, static_cast<Table *>(o));
-}
-
-inline Proto *gco2p(GCObject *o) {
-  return check_exp(o->tt == LUA_VPROTO, static_cast<Proto *>(o));
-}
-
-inline lua_State *gco2th(GCObject *o) {
-  return check_exp(o->tt == LUA_VTHREAD, static_cast<lua_State *>(o));
-}
-
-inline UpVal *gco2upv(GCObject *o) {
-  return check_exp(o->tt == LUA_VUPVAL, static_cast<UpVal *>(o));
-}
 
 /*
 ** Functions to convert a Lua object into a GCObject
