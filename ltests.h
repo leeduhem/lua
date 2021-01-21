@@ -51,7 +51,7 @@ struct Memcontrol {
   unsigned long total;
   unsigned long maxmem;
   unsigned long memlimit;
-  unsigned long countlimit;
+  unsigned long countlimit = ~0UL;
   unsigned long objcount[LUA_NUMTYPES];
 };
 
