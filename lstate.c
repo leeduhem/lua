@@ -279,7 +279,7 @@ LUA_API lua_State *lua_newthread (lua_State *L) {
   L1->tt = LUA_VTHREAD;
   /* link it on list 'allgc' */
   L1->next = g->allgc;
-  g->allgc = obj2gco(L1);
+  g->allgc = L1;
   /* anchor it on L stack */
   setthvalue2s(L, L->top, L1);
   api_incr_top(L);
@@ -341,7 +341,7 @@ LUA_API lua_State *lua_newstate (lua_Alloc f, void *ud) {
   g->currentwhite = bitmask(WHITE0BIT);
   L->marked = luaC_white(g);
   preinit_thread(L, g);
-  g->allgc = obj2gco(L);  /* by now, only object is the main thread */
+  g->allgc = L;  /* by now, only object is the main thread */
   incnny(L);  /* main thread is always non yieldable */
   g->frealloc = f;
   g->ud = ud;

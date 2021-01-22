@@ -1778,7 +1778,7 @@ void luaV_execute (lua_State *L, CallInfo *ci) {
           TValue *val = s2v(ra + n);
           setobj2t(L, &h->array[last - 1], val);
           last--;
-          luaC_barrierback(L, obj2gco(h), val);
+          luaC_barrierback(L, h, val);
         }
         vmbreak;
       }

@@ -179,19 +179,19 @@ LUAI_FUNC void luaC_barrierback_ (lua_State *L, GCObject *o);
 LUAI_FUNC void luaC_checkfinalizer (lua_State *L, GCObject *o, Table *mt);
 LUAI_FUNC void luaC_changemode (lua_State *L, int newmode);
 
-inline void luaC_barrier(lua_State *L, GCObject *p, const TValue *v) {
+inline void luaC_barrier(lua_State *L, GCObject *p, TValue *v) {
   if (iscollectable(v) && isblack(p) && iswhite(gcvalue(v)))
-    luaC_barrier_(L, obj2gco(p), gcvalue(v));
+    luaC_barrier_(L, p, gcvalue(v));
 }
 
-inline void luaC_barrierback(lua_State *L, GCObject *p, const TValue *v) {
+inline void luaC_barrierback(lua_State *L, GCObject *p, TValue *v) {
   if (iscollectable(v) && isblack(p) && iswhite(gcvalue(v)))
     luaC_barrierback_(L, p);
 }
 
-inline void luaC_objbarrier(lua_State *L, GCObject *p, const GCObject *o) {
+inline void luaC_objbarrier(lua_State *L, GCObject *p, GCObject *o) {
   if (isblack(p) && iswhite(o))
-    luaC_barrier_(L, obj2gco(p), obj2gco(o));
+    luaC_barrier_(L, p, o);
 }
 
 #endif

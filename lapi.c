@@ -868,7 +868,7 @@ static void aux_rawset (lua_State *L, int idx, TValue *key, int n) {
   slot = luaH_set(L, t, key);
   setobj2t(L, slot, s2v(L->top - 1));
   invalidateTMcache(t);
-  luaC_barrierback(L, obj2gco(t), s2v(L->top - 1));
+  luaC_barrierback(L, t, s2v(L->top - 1));
   L->top -= n;
   lua_unlock(L);
 }
@@ -892,7 +892,7 @@ LUA_API void lua_rawseti (lua_State *L, int idx, lua_Integer n) {
   api_checknelems(L, 1);
   t = gettable(L, idx);
   luaH_setint(L, t, n, s2v(L->top - 1));
-  luaC_barrierback(L, obj2gco(t), s2v(L->top - 1));
+  luaC_barrierback(L, t, s2v(L->top - 1));
   L->top--;
   lua_unlock(L);
 }
@@ -1062,7 +1062,7 @@ LUA_API int lua_load (lua_State *L, lua_Reader reader, void *data,
     if (f->nupvalues >= 1) {  /* does it have an upvalue? */
       /* get global table from registry */
       Table *reg = hvalue(&G(L)->l_registry);
-      const TValue *gt = luaH_getint(reg, LUA_RIDX_GLOBALS);
+      TValue *gt = luaH_getint(reg, LUA_RIDX_GLOBALS);
       /* set global table as 1st upvalue of 'f' (may be LUA_ENV) */
       setobj(L, f->upvals[0]->v, gt);
       luaC_barrier(L, f->upvals[0], gt);
@@ -1328,7 +1328,7 @@ static const char *aux_upvalue (TValue *fi, int n, TValue **val,
       if (!(cast_uint(n) - 1u < cast_uint(f->nupvalues)))
         return NULL;  /* 'n' not in [1, f->nupvalues] */
       *val = &f->upvalue[n-1];
-      if (owner) *owner = obj2gco(f);
+      if (owner) *owner = f;
       return "";
     }
     case LUA_VLCL: {  /* Lua closure */
@@ -1338,7 +1338,7 @@ static const char *aux_upvalue (TValue *fi, int n, TValue **val,
       if (!(cast_sizet(n) - 1u < p->upvalues.size()))
 	return nullptr;  // 'n' not in [1, p->upvalues.size()]
       *val = f->upvals[n-1]->v;
-      if (owner) *owner = obj2gco(f->upvals[n - 1]);
+      if (owner) *owner = f->upvals[n - 1];
       name = p->upvalues[n-1].name;
       return (name == NULL) ? "(no name)" : getstr(name);
     }

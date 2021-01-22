@@ -301,42 +301,6 @@ constexpr int BASIC_STACK_SIZE = 2 * LUA_MINSTACK;
 
 inline int stacksize(lua_State *th) { return th->stack_last - th->stack; }
 
-/*
-** Union of all collectable objects (only for conversions)
-** ISO C99, 6.5.2.3 p.5:
-** "if a union contains several structures that share a common initial
-** sequence [...], and if the union object currently contains one
-** of these structures, it is permitted to inspect the common initial
-** part of any of them anywhere that a declaration of the complete type
-** of the union is visible."
-*/
-union GCUnion {
-  GCObject gc;  /* common header */
-  struct TString ts;
-  struct Udata u;
-  union Closure cl;
-  struct Table h;
-  struct Proto p;
-  struct lua_State th;  /* thread */
-  struct UpVal upv;
-};
-
-
-/*
-** ISO C99, 6.7.2.1 p.14:
-** "A pointer to a union object, suitably converted, points to each of
-** its members [...], and vice versa."
-*/
-#define cast_u(o)	cast(union GCUnion *, (o))
-
-/*
-** Functions to convert a Lua object into a GCObject
-** (The access to 'tt' tries to ensure that 'v' is actually a Lua object.)
-*/
-template<typename T>
-inline GCObject *obj2gco(const T *v) {
-  return check_exp(v->tt >= LUA_TSTRING, &(cast_u(v))->gc);
-}
 
 /* actual number of total bytes allocated */
 inline lu_mem gettotalbytes(global_State *g) {

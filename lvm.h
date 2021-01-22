@@ -143,7 +143,7 @@ inline bool luaV_rawequalobj(const TValue *t1, const TValue *t2) {
 ** Finish a fast set operation (when fast get succeeds). In that case,
 ** 'slot' points to the place to put the value.
 */
-inline void luaV_finishfastset(lua_State *L, const TValue *t, const TValue *slot, const TValue *v) {
+inline void luaV_finishfastset(lua_State *L, const TValue *t, const TValue *slot, TValue *v) {
   setobj2t(L, cast(TValue *, slot), v);
   luaC_barrierback(L, gcvalue(t), v);
 }

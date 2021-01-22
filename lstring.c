@@ -126,7 +126,7 @@ void luaS_init (lua_State *L) {
   tb->size = MINSTRTABSIZE;
   /* pre-create memory-error message */
   g->memerrmsg = luaS_newliteral(L, MEMERRMSG);
-  luaC_fix(L, obj2gco(g->memerrmsg));  /* it should never be collected */
+  luaC_fix(L, g->memerrmsg);  /* it should never be collected */
   for (int i = 0; i < STRCACHE_N; i++)  /* fill cache with valid strings */
     for (int j = 0; j < STRCACHE_M; j++)
       g->strcache[i][j] = g->memerrmsg;

@@ -322,7 +322,7 @@ static int testobjref (global_State *g, GCObject *f, GCObject *t) {
 }
 
 #define checkobjref(g,f,t)  \
-	{ if (t) lua_longassert(testobjref(g,f,obj2gco(t))); }
+	{ if (t) lua_longassert(testobjref(g,f,t)); }
 
 
 static void checkvalref (global_State *g, GCObject *f, const TValue *t) {
@@ -334,7 +334,7 @@ static void checkvalref (global_State *g, GCObject *f, const TValue *t) {
 static void checktable (global_State *g, Table *h) {
   unsigned int asize = luaH_realasize(h);
   Node *limit = gnode(h, sizenode(h));
-  GCObject *hgc = obj2gco(h);
+  GCObject *hgc = h;
   checkobjref(g, hgc, h->metatable);
   for (unsigned int i = 0; i < asize; i++)
     checkvalref(g, hgc, &h->array[i]);
@@ -351,7 +351,7 @@ static void checktable (global_State *g, Table *h) {
 
 
 static void checkudata (global_State *g, Udata *u) {
-  GCObject *hgc = obj2gco(u);
+  GCObject *hgc = u;
   checkobjref(g, hgc, u->metatable);
   for (int i = 0; i < u->nuvalue; i++)
     checkvalref(g, hgc, &u->uv[i].uv);
@@ -363,7 +363,7 @@ static void checkudata (global_State *g, Udata *u) {
 ** prototype is still being created
 */
 static void checkproto (global_State *g, Proto *f) {
-  GCObject *fgc = obj2gco(f);
+  GCObject *fgc = f;
   checkobjref(g, fgc, f->source);
   for (auto &k : f->k) {
     if (ttisstring(&k))
@@ -379,21 +379,21 @@ static void checkproto (global_State *g, Proto *f) {
 
 
 static void checkCclosure (global_State *g, CClosure *cl) {
-  GCObject *clgc = obj2gco(cl);
+  GCObject *clgc = cl;
   for (int i = 0; i < cl->nupvalues; i++)
     checkvalref(g, clgc, &cl->upvalue[i]);
 }
 
 
 static void checkLclosure (global_State *g, LClosure *cl) {
-  GCObject *clgc = obj2gco(cl);
+  GCObject *clgc = cl;
   checkobjref(g, clgc, cl->p);
   for (int i=0; i<cl->nupvalues; i++) {
     UpVal *uv = cl->upvals[i];
     if (uv) {
       checkobjref(g, clgc, uv);
       if (!upisopen(uv))
-        checkvalref(g, obj2gco(uv), uv->v);
+        checkvalref(g, uv, uv->v);
     }
   }
 }

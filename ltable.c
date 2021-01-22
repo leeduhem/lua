@@ -95,7 +95,7 @@ static const Node dummynode_ = {
 };
 
 
-static const TValue absentkey = ABSTKEYCONSTANT;
+static TValue absentkey = ABSTKEYCONSTANT;
 
 
 /*
@@ -616,7 +616,7 @@ static Node *getfreepos (Table *t) {
 ** put new key in its main position; otherwise (colliding node is in its main
 ** position), new key goes to an empty position.
 */
-TValue *luaH_newkey (lua_State *L, Table *t, const TValue *key) {
+TValue *luaH_newkey (lua_State *L, Table *t, TValue *key) {
   TValue aux;
   if (unlikely(ttisnil(key)))
     luaG_runerror(L, "table index is nil");
@@ -662,7 +662,7 @@ TValue *luaH_newkey (lua_State *L, Table *t, const TValue *key) {
     }
   }
   setnodekey(L, mp, key);
-  luaC_barrierback(L, obj2gco(t), key);
+  luaC_barrierback(L, t, key);
   lua_assert(isempty(gval(mp)));
   return gval(mp);
 }
@@ -676,7 +676,7 @@ TValue *luaH_newkey (lua_State *L, Table *t, const TValue *key) {
 ** one more than the limit (so that it can be incremented without
 ** changing the real size of the array).
 */
-const TValue *luaH_getint (Table *t, lua_Integer key) {
+TValue *luaH_getint (Table *t, lua_Integer key) {
   if (l_castS2U(key) - 1u < t->alimit)  /* 'key' in [1, t->alimit]? */
     return &t->array[key - 1];
 
@@ -753,7 +753,7 @@ const TValue *luaH_get (Table *t, const TValue *key) {
 ** beware: when using this function you probably need to check a GC
 ** barrier and invalidate the TM cache.
 */
-TValue *luaH_set (lua_State *L, Table *t, const TValue *key) {
+TValue *luaH_set (lua_State *L, Table *t, TValue *key) {
   const TValue *p = luaH_get(t, key);
   if (!isabstkey(p))
     return cast(TValue *, p);

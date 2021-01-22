@@ -111,7 +111,7 @@ inline void markkey(global_State *g, Node *n) {
 }
 
 inline void markobject(global_State *g, GCObject *t) {
-  if (iswhite(t)) reallymarkobject(g, obj2gco(t));
+  if (iswhite(t)) reallymarkobject(g, t);
 }
 
 /*
@@ -162,12 +162,12 @@ static void linkgclist_ (GCObject *o, GCObject **pnext, GCObject **list) {
 ** Link a collectable object 'o' with a known type into the list 'p'.
 ** (Must be a macro to access the 'gclist' field in different types.)
 */
-#define linkgclist(o,p)	linkgclist_(obj2gco(o), &(o)->gclist, &(p))
+#define linkgclist(o,p)	linkgclist_(o, &(o)->gclist, &(p))
 
 /*
 ** Link a generic collectable object 'o' into the list 'p'.
 */
-#define linkobjgclist(o,p) linkgclist_(obj2gco(o), getgclist(o), &(p))
+#define linkobjgclist(o,p) linkgclist_(o, getgclist(o), &(p))
 
 
 /*
@@ -510,7 +510,7 @@ static int traverseephemeron (global_State *g, Table *h, int inv) {
   else if (hasclears)  /* table has white keys? */
     linkgclist(h, g->allweak);  /* may have to clean white keys */
   else
-    genlink(g, obj2gco(h));  /* check whether collector still needs to see it */
+    genlink(g, h);  /* check whether collector still needs to see it */
   return marked;
 }
 
@@ -529,7 +529,7 @@ static void traversestrongtable (global_State *g, Table *h) {
       markvalue(g, gval(n));
     }
   }
-  genlink(g, obj2gco(h));
+  genlink(g, h);
 }
 
 
@@ -558,7 +558,7 @@ static int traverseudata (global_State *g, Udata *u) {
   markobjectN(g, u->metatable);  /* mark its metatable */
   for (int i = 0; i < u->nuvalue; i++)
     markvalue(g, &u->uv[i].uv);
-  genlink(g, obj2gco(u));
+  genlink(g, u);
   return 1 + u->nuvalue;
 }
 
@@ -1502,7 +1502,7 @@ void luaC_freeallobjects (lua_State *L) {
   separatetobefnz(g, 1);  /* separate all objects with finalizers */
   lua_assert(g->finobj == NULL);
   callallpendingfinalizers(L);
-  deletelist(L, g->allgc, obj2gco(g->mainthread));
+  deletelist(L, g->allgc, g->mainthread);
   deletelist(L, g->finobj, NULL);
   deletelist(L, g->fixedgc, NULL);  /* collect fixed objects */
   lua_assert(g->strt.nuse == 0);

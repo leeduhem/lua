@@ -48,7 +48,8 @@ void luaT_init (lua_State *L) {
   int i;
   for (i=0; i<TM_N; i++) {
     G(L)->tmname[i] = luaS_new(L, luaT_eventname[i]);
-    luaC_fix(L, obj2gco(G(L)->tmname[i]));  /* never collect these names */
+    // never collect these names
+    luaC_fix(L, static_cast<GCObject *>(G(L)->tmname[i]));
   }
 }
 
