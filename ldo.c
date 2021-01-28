@@ -228,7 +228,7 @@ int luaD_growstack (lua_State *L, int n, int raiseerror) {
       /* add extra size to be able to handle the error message */
       luaD_reallocstack(L, ERRORSTACKSIZE, raiseerror);
       if (raiseerror)
-        luaG_runerror(L, "stack overflow");
+        luaG_runerror(L, "stack overflow" AT_LOCATION);
       return 0;
     }
   }

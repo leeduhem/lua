@@ -14,7 +14,7 @@
 
 /* Increments 'L->top', checking for stack overflows */
 #define api_incr_top(L)   {L->top++; api_check(L, L->top <= L->ci->top, \
-				"stack overflow");}
+				"stack overflow" AT_LOCATION);}
 
 
 /*

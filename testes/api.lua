@@ -449,7 +449,7 @@ if not _soft then
   collectgarbage("stop")
   checkerr("XXXX", T.testC, "checkstack 1000023 XXXX")   -- too deep
   -- too deep (with no message)
-  checkerr("^stack overflow$", T.testC, "checkstack 1000023 ''")
+  checkerr("^stack overflow", T.testC, "checkstack 1000023 ''")
   local s = string.rep("pushnil;checkstack 1 XX;", 1000000)
   checkerr("overflow", T.testC, s)
   collectgarbage("restart")

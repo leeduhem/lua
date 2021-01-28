@@ -140,6 +140,9 @@ typedef void (*lua_WarnFunction) (void *ud, const char *msg, int tocont);
 #include LUA_USER_H
 #endif
 
+#ifndef AT_LOCATION
+#define AT_LOCATION ""
+#endif
 
 /*
 ** RCS ident string

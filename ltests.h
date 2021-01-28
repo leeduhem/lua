@@ -129,5 +129,10 @@ LUA_API void *debug_realloc (void *ud, void *block, size_t osize, size_t nsize);
 #undef lua_strx2number
 #undef lua_number2strx
 
+#ifdef LUA_DEBUG
+#define STRINGIFY(x) #x
+#define TOSTRING(x) STRINGIFY(x)
+#define AT_LOCATION " at " __FILE__ ":" TOSTRING(__LINE__)
+#endif
 
 #endif

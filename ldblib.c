@@ -34,7 +34,7 @@ static const char *const HOOKKEY = "_HOOKKEY";
 */
 static void checkstack (lua_State *L, lua_State *L1, int n) {
   if (L != L1 && !lua_checkstack(L1, n))
-    luaL_error(L, "stack overflow");
+    luaL_error(L, "stack overflow" AT_LOCATION);
 }
 
 
