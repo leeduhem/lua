@@ -25,9 +25,10 @@
 */
 #define sizelstring(l)  (offsetof(TString, contents) + ((l) + 1) * sizeof(char))
 
-#define luaS_newliteral(L, s)	(luaS_newlstr(L, "" s, \
-                                 (sizeof(s)/sizeof(char))-1))
-
+template<size_t N>
+inline TString *luaS_newliteral(lua_State *L, const char (&s)[N]) {
+  return luaS_newlstr(L, s, N-1);
+}
 
 /*
 ** test whether a string is a reserved word
