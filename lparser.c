@@ -187,10 +187,10 @@ static int new_localvar (LexState *ls, TString *name) {
   return dyd->actvar.size() - 1 - fs->firstlocal;
 }
 
-#define new_localvarliteral(ls,v) \
-    new_localvar(ls, ls->new_string("" v, (sizeof(v)/sizeof(char)) - 1));
-
-
+template<size_t N>
+inline int new_localvar(LexState *ls, const char (&v)[N]) {
+  return new_localvar(ls, ls->new_string(v, N-1));
+}
 
 /*
 ** Return the "variable description" (Vardesc) of a given variable.
@@ -887,7 +887,7 @@ static void body (LexState *ls, expdesc *e, int ismethod, int line) {
   open_func(ls, &new_fs, &bl);
   checknext(ls, '(');
   if (ismethod) {
-    new_localvarliteral(ls, "self");  /* create 'self' parameter */
+    new_localvar(ls, "self");  /* create 'self' parameter */
     adjustlocalvars(ls, 1);
   }
   parlist(ls);
@@ -1462,9 +1462,9 @@ static void fornum (LexState *ls, TString *varname, int line) {
   /* fornum -> NAME = exp,exp[,exp] forbody */
   FuncState *fs = ls->fs;
   int base = fs->freereg;
-  new_localvarliteral(ls, "(for state)");
-  new_localvarliteral(ls, "(for state)");
-  new_localvarliteral(ls, "(for state)");
+  new_localvar(ls, "(for state)");
+  new_localvar(ls, "(for state)");
+  new_localvar(ls, "(for state)");
   new_localvar(ls, varname);
   checknext(ls, '=');
   exp1(ls);  /* initial value */
@@ -1488,10 +1488,10 @@ static void forlist (LexState *ls, TString *indexname) {
   int nvars = 5;  /* gen, state, control, toclose, 'indexname' */
   int base = fs->freereg;
   /* create control variables */
-  new_localvarliteral(ls, "(for state)");
-  new_localvarliteral(ls, "(for state)");
-  new_localvarliteral(ls, "(for state)");
-  new_localvarliteral(ls, "(for state)");
+  new_localvar(ls, "(for state)");
+  new_localvar(ls, "(for state)");
+  new_localvar(ls, "(for state)");
+  new_localvar(ls, "(for state)");
   /* create declared variables */
   new_localvar(ls, indexname);
   while (testnext(ls, ',')) {
