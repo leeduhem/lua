@@ -466,20 +466,15 @@ static l_noret jumpscopeerror (LexState *ls, Labeldesc &gt) {
 
 
 /*
-** Solves the goto at index 'g' to given 'label' and removes it
-** from the list of pending goto's.
-** If it jumps into the scope of some variable, raises an error.
-*/
-static void solvegoto (LexState *ls, int g, Labeldesc &label) {
-  Labellist &gl = ls->dyd->gt;  // list of goto's
-  Labeldesc &gt = gl[g];	// goto to be resolved
+ * Solves the goto 'gt' to given 'label'.
+ * If it jumps into the scope of some variable, raises an error.
+ */
+static void solvegoto (LexState *ls, Labeldesc &gt, Labeldesc &label) {
   lua_assert(eqstr(gt.name, label.name));
   if (unlikely(gt.nactvar < label.nactvar))  /* enter some scope? */
     jumpscopeerror(ls, gt);
   luaK_patchlist(ls->fs, gt.pc, label.pc);
-  gl.erase(gl.cbegin() + g);
 }
-
 
 /*
 ** Adds a new label/goto in the corresponding list.
@@ -500,17 +495,18 @@ static int newgotoentry (LexState *ls, TString *name, int line, int pc) {
 ** pending gotos in current block and solves them. Return true
 ** if any of the goto's need to close upvalues.
 */
-static bool solvegotos (LexState *ls, Labeldesc &lb) {
-  Labellist &gl = ls->dyd->gt;
-  auto bl = ls->fs->blocks.back();
+static bool solvegotos (LexState *ls, Labeldesc &label) {
+  auto &gl = ls->dyd->gt;
+  auto block = ls->fs->blocks.back();
   int needsclose = 0;
-  for (size_t i = bl->firstgoto; i < gl.size(); ) {
-    if (eqstr(gl[i].name, lb.name)) {
-      needsclose |= gl[i].close;
-      solvegoto(ls, i, lb);  /* will remove 'i' from the list */
+  for (auto gt = gl.begin() + block->firstgoto; gt != gl.end(); ) {
+    if (eqstr(gt->name, label.name)) {
+      needsclose |= gt->close;
+      solvegoto(ls, *gt, label);
+      gt = gl.erase(gt);
     }
     else
-      i++;
+      ++gt;
   }
   return needsclose;
 }
