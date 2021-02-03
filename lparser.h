@@ -123,20 +123,14 @@ struct Labeldesc {
 
 
 /* list of labels or gotos */
-typedef std::vector<Labeldesc, lua::allocator<Labeldesc>> Labellist;
+typedef std::vector<Labeldesc> Labellist;
 
 /* dynamic structures used by the parser */
 struct Dyndata {
   // list of all active local variables
-  std::vector<Vardesc, lua::allocator<Vardesc>> actvar;
+  std::vector<Vardesc> actvar;
   Labellist gt;  /* list of pending gotos */
   Labellist label;   /* list of active labels */
-
-  Dyndata(lua_State *L)
-    : actvar(lua::allocator<Vardesc>(L))
-    , gt(lua::allocator<Labeldesc>(L))
-    , label(lua::allocator<Labeldesc>(L))
-  {}
 };
 
 
@@ -150,7 +144,7 @@ struct FuncState {
   struct FuncState *prev = nullptr;  /* enclosing function */
   struct LexState *ls = nullptr;  /* lexical state */
   // chain of current blocks
-  std::vector<BlockCnt *, lua::allocator<BlockCnt *>> blocks;
+  std::vector<BlockCnt *> blocks;
   int pc = 0;  /* next position to code (equivalent to 'ncode') */
   int lasttarget = 0;   /* 'label' of last 'jump label' */
   int previousline = 0;  /* last line that was saved in 'lineinfo' */
@@ -162,10 +156,6 @@ struct FuncState {
   lu_byte freereg = 0;  /* first free register */
   lu_byte iwthabs = 0;  /* instructions issued since last absolute line info */
   lu_byte needclose = 0;  /* function needs to close upvalues when returning */
-
-  FuncState(lua_State *L)
-    : blocks(lua::allocator<BlockCnt *>(L))
-  {}
 };
 
 

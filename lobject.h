@@ -585,29 +585,22 @@ struct Proto : public GCObject {
   int linedefined = 0;  /* debug information  */
   int lastlinedefined = 0;  /* debug information  */
   // constants used by the function
-  std::vector<TValue, lua::allocator<TValue>> k;
-  std::vector<Instruction, lua::allocator<Instruction>> code; // opcodes
+  std::vector<TValue> k;
+  std::vector<Instruction> code; // opcodes
   // functions defined inside the function
-  std::vector<Proto *, lua::allocator<Proto *>> p;
+  std::vector<Proto *> p;
   // upvalue information
-  std::vector<Upvaldesc, lua::allocator<Upvaldesc>> upvalues;
+  std::vector<Upvaldesc> upvalues;
   // information about source lines (debug information)
-  std::vector<ls_byte, lua::allocator<ls_byte>> lineinfo;
-  std::vector<AbsLineInfo, lua::allocator<AbsLineInfo>> abslineinfo; // idem
+  std::vector<ls_byte> lineinfo;
+  std::vector<AbsLineInfo> abslineinfo; // idem
   // information about local variables (debug information)
-  std::vector<LocVar, lua::allocator<LocVar>> locvars;
+  std::vector<LocVar> locvars;
   TString  *source = nullptr;  /* used for debug information */
   GCObject *gclist = nullptr;
 
   Proto(lua_State *L, lu_byte tag)
     : GCObject(G(L), tag)
-    , k(lua::allocator<TValue>(L))
-    , code(lua::allocator<Instruction>(L))
-    , p(lua::allocator<Proto *>(L))
-    , upvalues(lua::allocator<Upvaldesc>(L))
-    , lineinfo(lua::allocator<ls_byte>(L))
-    , abslineinfo(lua::allocator<AbsLineInfo>(L))
-    , locvars(lua::allocator<LocVar>(L))
   {}
 };
 

@@ -806,8 +806,6 @@ struct SParser {  /* data to 'f_parser' */
   Dyndata dyd;  /* dynamic structures used by the parser */
   const char *mode;
   const char *name;
-
-  SParser(lua_State *L) : buff(L), dyd(L) {}
 };
 
 
@@ -838,7 +836,7 @@ static void f_parser (lua_State *L, void *ud) {
 
 
 int luaD_protectedparser (lua_State *L, ZIO *z, const char *name, const char *mode) {
-  struct SParser p(L);
+  struct SParser p;
   int status;
   incnny(L);  /* cannot yield during parsing */
   p.z = z; p.name = name; p.mode = mode;

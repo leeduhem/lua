@@ -17,7 +17,7 @@ constexpr int EOZ = -1;  // end of stream
 
 typedef struct Zio ZIO;
 
-typedef std::vector<char, lua::allocator<char>> Mbuffer;
+typedef std::vector<char> Mbuffer;
 
 /* --------- Private Part ------------------ */
 

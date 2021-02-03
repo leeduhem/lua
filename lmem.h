@@ -70,43 +70,4 @@ LUAI_FUNC void *luaM_saferealloc_ (lua_State *L, void *block, size_t oldsize, si
 LUAI_FUNC void luaM_free_ (lua_State *L, void *block, size_t osize);
 LUAI_FUNC void *luaM_malloc_ (lua_State *L, size_t size, int tag);
 
-
-namespace lua
-{
-  template<typename T>
-    class allocator : public std::allocator<T>
-    {
-    public:
-      typedef size_t size_type;
-      typedef T *pointer;
-
-      template<typename U>
-	struct rebind
-	{
-	  typedef allocator<U> other;
-	};
-
-      pointer allocate(size_type n, const void *hint = 0) {
-	(void)hint;
-	if (n == 0)
-	  return nullptr;
-
-	return (pointer)luaM_saferealloc_(L, nullptr, 0, n * sizeof(T));
-      }
-
-      void deallocate(pointer p, size_type n)
-      {
-	if (n == 0)
-	  return;
-	luaM_free_(L, p, n * sizeof(T));
-      }
-
-      allocator(lua_State *ls) noexcept : std::allocator<T>(), L(ls) {}
-
-    private:
-      lua_State *L;
-    };
-}
-
 #endif
-
