@@ -347,20 +347,20 @@ inline Instruction CREATE_ABCk(int o, int a, int b, int c, int k) {
 	  | (cast(Instruction, k) << POS_k));
 }
 
-inline Instruction CREATE_ABx(int o, int a, int bc) {
+inline Instruction CREATE_ABx(int o, int a, int bx) {
   return ((cast(Instruction, o) << POS_OP)
 	  | (cast(Instruction, a) << POS_A)
-	  | (cast(Instruction, bc) << POS_Bx));
+	  | (cast(Instruction, bx) << POS_Bx));
 }
 
-inline Instruction CREATE_Ax(int o, int a) {
+inline Instruction CREATE_Ax(int o, int ax) {
   return ((cast(Instruction, o) << POS_OP)
-	  | (cast(Instruction, a) << POS_Ax));
+	  | (cast(Instruction, ax) << POS_Ax));
 }
 
-inline Instruction CREATE_sJ(int o, int j, int k) {
+inline Instruction CREATE_sJ(int o, int sj, int k) {
   return ((cast(Instruction, o) << POS_OP)
-	  | (cast(Instruction, j) << POS_sJ)
+	  | (cast(Instruction, sj) << POS_sJ)
 	  | (cast(Instruction, k) << POS_k));
 }
 
