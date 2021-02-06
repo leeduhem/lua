@@ -30,7 +30,7 @@
 
 #include <new>
 #include <algorithm>
-
+#include <forward_list>
 
 /* maximum number of local variables per function (must be smaller
    than 250, due to the bytecode format) */
@@ -1197,14 +1197,9 @@ static void block (LexState *ls) {
 
 
 /*
-** structure to chain all variables in the left-hand side of an
-** assignment
+** structure to chain all variables in the left-hand side of an assignment
 */
-struct LHS_assign {
-  struct LHS_assign *prev;
-  expdesc v;  /* variable (global, local, upvalue, or indexed) */
-};
-
+typedef std::forward_list<expdesc> LHS_assign;
 
 /*
 ** check whether, in an assignment to an upvalue/local variable, the
@@ -1212,28 +1207,28 @@ struct LHS_assign {
 ** table. If so, save original upvalue/local value in a safe place and
 ** use this safe copy in the previous assignment.
 */
-static void check_conflict (LexState *ls, struct LHS_assign *lh, expdesc *v) {
+static void check_conflict (LexState *ls, LHS_assign &lh, expdesc *v) {
   FuncState *fs = ls->fs;
   int extra = fs->freereg;  /* eventual position to save local variable */
-  int conflict = 0;
-  for (; lh; lh = lh->prev) {  /* check all previous assignments */
-    if (vkisindexed(lh->v.k)) {  /* assignment to table field? */
-      if ((lh->v.k == VINDEXUP)  /* is table an upvalue? */
-	  && (v->k == VUPVAL && lh->v.u.ind.t == v->u.info)) {
-	conflict = 1;  /* table is the upvalue being assigned now */
-	lh->v.k = VINDEXSTR;
-	lh->v.u.ind.t = extra;  /* assignment will use safe copy */
+  bool conflict = false;
+  for (auto it = lh.begin(); it != lh.end(); ++it) { // check all previous assignments
+    if (vkisindexed(it->k)) { // assignment to table field?
+      if ((it->k == VINDEXUP) // is table an upvalue?
+          && (v->k == VUPVAL && it->u.ind.t == v->u.info)) {
+        conflict = true; // table is the upvalue being assigned now
+        it->k = VINDEXSTR;
+        it->u.ind.t = extra; // assignment will use safe copy
       }
-      else {  /* table is a register */
-        if (v->k == VLOCAL && lh->v.u.ind.t == v->u.var.sidx) {
-          conflict = 1;  /* table is the local being assigned now */
-          lh->v.u.ind.t = extra;  /* assignment will use safe copy */
+      else { // table is a register
+        if (v->k == VLOCAL && it->u.ind.t == v->u.var.sidx) {
+          conflict = true; // table is the local being assigned now
+          it->u.ind.t = extra; // assignment will use safe copy
         }
-        /* is index the local being assigned? */
-        if (lh->v.k == VINDEXED && v->k == VLOCAL &&
-            lh->v.u.ind.idx == v->u.var.sidx) {
-          conflict = 1;
-          lh->v.u.ind.idx = extra;  /* previous assignment will use safe copy */
+        // is index the local being assigned?
+        if (it->k == VINDEXED && v->k == VLOCAL
+            && it->u.ind.idx == v->u.var.sidx) {
+          conflict = true;
+          it->u.ind.idx = extra; // previous assignment will use safe copy
         }
       }
     }
@@ -1255,18 +1250,19 @@ static void check_conflict (LexState *ls, struct LHS_assign *lh, expdesc *v) {
 ** assignment -> suffixedexp restassign
 ** restassign -> ',' suffixedexp restassign | '=' explist
 */
-static void restassign (LexState *ls, struct LHS_assign *lh, int nvars) {
+static void restassign (LexState *ls, LHS_assign &lh, int nvars) {
   expdesc e;
-  check_condition(ls, vkisvar(lh->v.k), "syntax error");
-  check_readonly(ls, &lh->v);
-  if (testnext(ls, ',')) {  /* restassign -> ',' suffixedexp restassign */
-    struct LHS_assign nv;
-    nv.prev = lh;
-    suffixedexp(ls, &nv.v);
-    if (!vkisindexed(nv.v.k))
-      check_conflict(ls, lh, &nv.v);
-    enterlevel(ls);  /* control recursion depth */
-    restassign(ls, &nv, nvars+1);
+  check_condition(ls, vkisvar(lh.front().k), "syntax error");
+  check_readonly(ls, &lh.front());
+  if (testnext(ls, ',')) { // restassign -> ',' suffixedexp restassign
+    expdesc v;
+    suffixedexp(ls, &v);
+    if (!vkisindexed(v.k))
+      check_conflict(ls, lh, &v);
+    enterlevel(ls); // control recursion depth
+    lh.push_front(v);
+    restassign(ls, lh, nvars + 1);
+    lh.pop_front();
     leavelevel(ls);
   }
   else {  /* restassign -> '=' explist */
@@ -1276,12 +1272,12 @@ static void restassign (LexState *ls, struct LHS_assign *lh, int nvars) {
       adjust_assign(ls, nvars, nexps, &e);
     else {
       luaK_setoneret(ls->fs, &e);  /* close last expression */
-      luaK_storevar(ls->fs, &lh->v, &e);
+      luaK_storevar(ls->fs, &lh.front(), &e);
       return;  /* avoid default */
     }
   }
   init_exp(&e, VNONRELOC, ls->fs->freereg-1);  /* default assignment */
-  luaK_storevar(ls->fs, &lh->v, &e);
+  luaK_storevar(ls->fs, &lh.front(), &e);
 }
 
 
@@ -1680,15 +1676,14 @@ static void funcstat (LexState *ls, int line) {
 static void exprstat (LexState *ls) {
   /* stat -> func | assignment */
   FuncState *fs = ls->fs;
-  struct LHS_assign v;
-  suffixedexp(ls, &v.v);
+  LHS_assign v { expdesc{} };
+  suffixedexp(ls, &v.front());
   if (ls->t == '=' || ls->t == ',') { /* stat -> assignment ? */
-    v.prev = nullptr;
-    restassign(ls, &v, 1);
+    restassign(ls, v, 1);
   }
   else {  /* stat -> func */
-    check_condition(ls, v.v.k == VCALL, "syntax error");
-    Instruction *inst = &getinstruction(fs, &v.v);
+    check_condition(ls, v.front().k == VCALL, "syntax error");
+    Instruction *inst = &getinstruction(fs, &v.front());
     SETARG_C(*inst, 1);  /* call statement uses no results */
   }
 }
