@@ -30,16 +30,6 @@ struct DumpState {
     L(L1), writer(writer1), data(data1), strip(strip1), status(status1) {}
 };
 
-
-/*
-** All high-level dumps go through dumpVector; you can change it to
-** change the endianness of the result
-*/
-#define dumpVector(D,v,n)	dumpBlock(D,v,(n)*sizeof((v)[0]))
-
-#define dumpLiteral(D, s)	dumpBlock(D,s,sizeof(s) - sizeof(char))
-
-
 static void dumpBlock (DumpState *D, const void *b, size_t size) {
   if (D->status == 0 && size > 0) {
     lua_unlock(D->L);
@@ -48,13 +38,27 @@ static void dumpBlock (DumpState *D, const void *b, size_t size) {
   }
 }
 
+/*
+** All high-level dumps go through dumpVector; you can change it to
+** change the endianness of the result
+*/
+template<typename T>
+inline void dumpVector (DumpState *D, const T *v, int n) {
+  dumpBlock(D, v, n * sizeof(v[0]));
+}
 
-#define dumpVar(D,x)		dumpVector(D,&x,1)
+template<size_t N>
+inline void dumpLiteral(DumpState *D, const char (&s)[N]) {
+  dumpBlock(D, s, N-1);
+}
 
+template<typename T>
+inline void dumpVar(DumpState *D, T x) {
+  dumpVector(D, &x, 1);
+}
 
 static void dumpByte (DumpState *D, int y) {
-  lu_byte x = (lu_byte)y;
-  dumpVar(D, x);
+  dumpVar(D, (lu_byte)y);
 }
 
 
@@ -89,14 +93,15 @@ static void dumpInteger (DumpState *D, lua_Integer x) {
 
 
 static void dumpString (DumpState *D, const TString *s) {
-  if (s == nullptr)
+  if (!s) {
     dumpSize(D, 0);
-  else {
-    size_t size = tsslen(s);
-    const char *str = getstr(s);
-    dumpSize(D, size + 1);
-    dumpVector(D, str, size);
+    return;
   }
+
+  size_t size = tsslen(s);
+  const char *str = getstr(s);
+  dumpSize(D, size + 1);
+  dumpVector(D, str, size);
 }
 
 
@@ -109,29 +114,28 @@ static void dumpCode (DumpState *D, const Proto *f) {
 static void dumpFunction(DumpState *D, const Proto *f, TString *psource);
 
 static void dumpConstants (DumpState *D, const Proto *f) {
-  int n = cast_int(f->k.size());
+  int n = f->k.size();
   dumpInt(D, n);
-  for (int i = 0; i < n; i++) {
-    const TValue *o = &f->k[i];
+  for (const auto &k : f->k) {
+    const TValue *o = &k;
     int tt = ttypetag(o);
     dumpByte(D, tt);
     switch (tt) {
-      case LUA_VNUMFLT:
-        dumpNumber(D, fltvalue(o));
-        break;
-      case LUA_VNUMINT:
-        dumpInteger(D, ivalue(o));
-        break;
-      case LUA_VSHRSTR:
-      case LUA_VLNGSTR:
-        dumpString(D, tsvalue(o));
-        break;
-      default:
-        lua_assert(tt == LUA_VNIL || tt == LUA_VFALSE || tt == LUA_VTRUE);
+    case LUA_VNUMFLT:
+      dumpNumber(D, fltvalue(o));
+      break;
+    case LUA_VNUMINT:
+      dumpInteger(D, ivalue(o));
+      break;
+    case LUA_VSHRSTR:
+    case LUA_VLNGSTR:
+      dumpString(D, tsvalue(o));
+      break;
+    default:
+      lua_assert(tt == LUA_VNIL || tt == LUA_VFALSE || tt == LUA_VTRUE);
     }
   }
 }
-
 
 static void dumpProtos (DumpState *D, const Proto *f) {
   int n = f->p.size();
@@ -153,31 +157,34 @@ static void dumpUpvalues (DumpState *D, const Proto *f) {
 
 
 static void dumpDebug (DumpState *D, const Proto *f) {
-  int n = (D->strip) ? 0 : f->lineinfo.size();
+  if (D->strip) {
+    for (int i = 0; i < 4; ++i)
+      dumpInt(D, 0);
+    return;
+  }
+
+  int n = f->lineinfo.size();
   dumpInt(D, n);
   dumpVector(D, f->lineinfo.data(), n);
 
-  n = (D->strip) ? 0 : f->abslineinfo.size();
-  dumpInt(D, n);
-  for (int i = 0; i < n; i++) {
-    dumpInt(D, f->abslineinfo[i].pc);
-    dumpInt(D, f->abslineinfo[i].line);
+  dumpInt(D, f->abslineinfo.size());
+  for (const auto &i: f->abslineinfo) {
+    dumpInt(D, i.pc);
+    dumpInt(D, i.line);
   }
 
-  n = (D->strip) ? 0 : f->locvars.size();
-  dumpInt(D, n);
-  for (int i = 0; i < n; i++) {
-    dumpString(D, f->locvars[i].varname);
-    dumpInt(D, f->locvars[i].startpc);
-    dumpInt(D, f->locvars[i].endpc);
+  dumpInt(D, f->locvars.size());
+  for (const auto &i: f->locvars) {
+    dumpString(D, i.varname);
+    dumpInt(D, i.startpc);
+    dumpInt(D, i.endpc);
   }
 
-  n = (D->strip) ? 0 : f->upvalues.size();
-  dumpInt(D, n);
-  for (int i = 0; i < n; i++)
-    dumpString(D, f->upvalues[i].name);
+  dumpInt(D, f->upvalues.size());
+  for (const auto &i: f->upvalues) {
+    dumpString(D, i.name);
+  }
 }
-
 
 static void dumpFunction (DumpState *D, const Proto *f, TString *psource) {
   if (D->strip || f->source == psource)

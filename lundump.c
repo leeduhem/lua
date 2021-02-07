@@ -45,21 +45,25 @@ static l_noret error (LoadState *S, const char *why) {
   luaD_throw(S->L, LUA_ERRSYNTAX);
 }
 
+static void loadBlock (LoadState *S, void *b, size_t size) {
+  if (S->Z->read(b, size))
+    error(S, "truncated chunk");
+}
+
 
 /*
 ** All high-level loads go through loadVector; you can change it to
 ** adapt to the endianness of the input
 */
-#define loadVector(S,b,n)	loadBlock(S,b,(n)*sizeof((b)[0]))
-
-static void loadBlock (LoadState *S, void *b, size_t size) {
-  if (S->Z->read(b, size) != 0)
-    error(S, "truncated chunk");
+template<typename T>
+inline void loadVector(LoadState *S, T *b, int n) {
+  loadBlock(S, b, n * sizeof(b[0]));
 }
 
-
-#define loadVar(S,x)		loadVector(S,&x,1)
-
+template<typename T>
+inline void loadVar(LoadState *S, T &x) {
+  loadVector(S, &x, 1);
+}
 
 static lu_byte loadByte (LoadState *S) {
   int b = S->Z->getc();
@@ -139,7 +143,7 @@ static TString *loadStringN (LoadState *S, Proto *p) {
 */
 static TString *loadString (LoadState *S, Proto *p) {
   TString *st = loadStringN(S, p);
-  if (st == nullptr)
+  if (!st)
     error(S, "bad format for constant string");
   return st;
 }
@@ -190,7 +194,7 @@ static void loadConstants (LoadState *S, Proto *f) {
 static void loadProtos (LoadState *S, Proto *f) {
   int n = loadInt(S);
   f->p.resize(n);
-  for (int i = 0; i < n; i++) {
+  for (int i = 0; i < n; ++i) {
     f->p[i] = luaF_newproto(S->L);
     luaC_objbarrier(S->L, f, f->p[i]);
     loadFunction(S, f->p[i], f->source);
@@ -222,28 +226,32 @@ static void loadDebug (LoadState *S, Proto *f) {
 
   n = loadInt(S);
   f->abslineinfo.resize(n);
-  for (int i = 0; i < n; i++) {
-    f->abslineinfo[i].pc = loadInt(S);
-    f->abslineinfo[i].line = loadInt(S);
+  for (auto &i: f->abslineinfo) {
+    i.pc = loadInt(S);
+    i.line = loadInt(S);
   }
 
   n = loadInt(S);
   f->locvars.resize(n);
-  for (int i = 0; i < n; i++) {
-    f->locvars[i].varname = loadStringN(S, f);
-    f->locvars[i].startpc = loadInt(S);
-    f->locvars[i].endpc = loadInt(S);
+  for (auto &i: f->locvars) {
+    i.varname = loadStringN(S, f);
+    i.startpc = loadInt(S);
+    i.endpc = loadInt(S);
   }
 
   n = loadInt(S);
-  for (int i = 0; i < n; i++)
-    f->upvalues[i].name = loadStringN(S, f);
+  lua_assert(n == 0 // No debug information
+             || cast_sizet(n) == f->upvalues.size());
+  if (n) {
+    for (auto &i: f->upvalues)
+      i.name = loadStringN(S, f);
+  }
 }
 
 
 static void loadFunction (LoadState *S, Proto *f, TString *psource) {
   f->source = loadStringN(S, f);
-  if (f->source == nullptr)  /* no source in dump? */
+  if (!f->source)  /* no source in dump? */
     f->source = psource;  /* reuse parent's source */
   f->linedefined = loadInt(S);
   f->lastlinedefined = loadInt(S);
@@ -314,4 +322,3 @@ LClosure *luaU_undump(lua_State *L, ZIO *Z, const char *name) {
   luai_verifycode(L, cl->p);
   return cl;
 }
-
