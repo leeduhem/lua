@@ -61,7 +61,7 @@ LOCAL = $(TESTS) $(CWARNS)
 
 
 # enable Linux goodies
-MYCFLAGS= $(LOCAL) -std=c++11 -DLUA_USE_LINUX -DLUA_USE_READLINE
+MYCFLAGS= $(LOCAL) -std=c++14 -DLUA_USE_LINUX -DLUA_USE_READLINE
 MYLDFLAGS= $(LOCAL) -Wl,-E
 MYLIBS= -ldl -lreadline
 
