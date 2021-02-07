@@ -609,9 +609,8 @@ static Proto *addprototype (LexState *ls) {
   lua_State *L = ls->L;
   FuncState *fs = ls->fs;
   Proto *f = fs->f;  /* prototype of current function */
-  if (f->p.empty() || cast_sizet(fs->np) >= f->p.size())
-    f->p.resize(f->p.size() + 1);
-  lua_assert(cast_sizet(fs->np) < f->p.size());
+  lua_assert(cast_sizet(fs->np) == f->p.size());
+  f->p.resize(f->p.size() + 1);
   Proto *clp = f->p[fs->np++] = luaF_newproto(L);
   luaC_objbarrier(L, f, clp);
   return clp;
@@ -1137,7 +1136,7 @@ static const struct {
    {2, 2}, {1, 1}            /* and, or */
 };
 
-#define UNARY_PRIORITY	12  /* priority for unary operators */
+constexpr int UNARY_PRIORITY = 12;  /* priority for unary operators */
 
 
 /*
@@ -1203,7 +1202,7 @@ typedef std::forward_list<expdesc> LHS_assign;
 
 /*
 ** check whether, in an assignment to an upvalue/local variable, the
-** upvalue/local variable is begin used in a previous assignment to a
+** upvalue/local variable is being used in a previous assignment to a
 ** table. If so, save original upvalue/local value in a safe place and
 ** use this safe copy in the previous assignment.
 */
@@ -1395,9 +1394,7 @@ static void repeatstat (LexState *ls, int line) {
 
 
 /*
-** Read an expression and generate code to put its results in next
-** stack slot.
-**
+** Read an expression and generate code to put its results in next stack slot.
 */
 static void exp1 (LexState *ls) {
   expdesc e;
@@ -1409,17 +1406,16 @@ static void exp1 (LexState *ls) {
 
 /*
 ** Fix for instruction at position 'pc' to jump to 'dest'.
-** (Jump addresses are relative in Lua). 'back' true means
-** a back jump.
+** (Jump addresses are relative in Lua). 'back' true means a back jump.
 */
 static void fixforjump (FuncState *fs, int pc, int dest, int back) {
-  Instruction *jmp = &fs->f->code[pc];
+  Instruction &jmp = fs->f->code[pc];
   int offset = dest - (pc + 1);
   if (back)
     offset = -offset;
   if (unlikely(offset > MAXARG_Bx))
     fs->ls->syntax_error("control structure too long");
-  SETARG_Bx(*jmp, offset);
+  SETARG_Bx(jmp, offset);
 }
 
 
@@ -1537,8 +1533,8 @@ static void test_then_block (LexState *ls, int *escapelist) {
       leaveblock(fs);
       return;  /* and that is it */
     }
-    else  /* must skip over 'then' part if condition is false */
-      jf = luaK_jump(fs);
+    /* must skip over 'then' part if condition is false */
+    jf = luaK_jump(fs);
   }
   else {  /* regular case (not a break) */
     luaK_goiftrue(ls->fs, &v);  /* skip over block if condition is false */
@@ -1547,8 +1543,7 @@ static void test_then_block (LexState *ls, int *escapelist) {
   }
   statlist(ls);  /* 'then' part */
   leaveblock(fs);
-  if (ls->t == TK_ELSE ||
-      ls->t == TK_ELSEIF)  /* followed by 'else'/'elseif'? */
+  if (ls->t == TK_ELSE || ls->t == TK_ELSEIF)  /* followed by 'else'/'elseif'? */
     luaK_concat(fs, escapelist, luaK_jump(fs));  /* must jump over it */
   luaK_patchtohere(fs, jf);
 }
@@ -1558,9 +1553,9 @@ static void ifstat (LexState *ls, int line) {
   /* ifstat -> IF cond THEN block {ELSEIF cond THEN block} [ELSE block] END */
   FuncState *fs = ls->fs;
   int escapelist = NO_JUMP;  /* exit list for finished parts */
-  test_then_block(ls, &escapelist);  /* IF cond THEN block */
-  while (ls->t == TK_ELSEIF)
-    test_then_block(ls, &escapelist);  /* ELSEIF cond THEN block */
+  do {
+    test_then_block(ls, &escapelist); // IF cond THEN block {ELSEIF cond THEN block}
+  } while (ls->t == TK_ELSEIF);
   if (testnext(ls, TK_ELSE))
     block(ls);  /* 'else' part */
   check_match(ls, TK_END, TK_IF, line);
@@ -1582,28 +1577,27 @@ static void localfunc (LexState *ls) {
 
 static int getlocalattribute (LexState *ls) {
   /* ATTRIB -> ['<' Name '>'] */
-  if (testnext(ls, '<')) {
-    const char *attr = getstr(str_checkname(ls));
-    checknext(ls, '>');
-    if (strcmp(attr, "const") == 0)
-      return RDKCONST;  /* read-only variable */
-    else if (strcmp(attr, "close") == 0)
-      return RDKTOCLOSE;  /* to-be-closed variable */
-    else
-      luaK_semerror(ls,
-        luaO_pushfstring(ls->L, "unknown attribute '%s'", attr));
-  }
-  return VDKREG;  /* regular variable */
+  if (!testnext(ls, '<'))
+    return VDKREG; // regular variable
+
+  const char *attr = getstr(str_checkname(ls));
+  checknext(ls, '>');
+  if (strcmp(attr, "const") == 0)
+    return RDKCONST;  /* read-only variable */
+  if (strcmp(attr, "close") == 0)
+    return RDKTOCLOSE;  /* to-be-closed variable */
+  luaK_semerror(ls, luaO_pushfstring(ls->L, "unknown attribute '%s'", attr));
 }
 
 
 static void checktoclose (LexState *ls, int level) {
-  if (level != -1) {  /* is there a to-be-closed variable? */
-    FuncState *fs = ls->fs;
-    markupval(fs, level + 1);
-    fs->blocks.back()->insidetbc = 1; /* in the scope of a to-be-closed variable */
-    luaK_codeABC(fs, OP_TBC, stacklevel(fs, level), 0, 0);
-  }
+  if (level == -1) return;
+
+  // there is a to-be-closed variable
+  FuncState *fs = ls->fs;
+  markupval(fs, level + 1);
+  fs->blocks.back()->insidetbc = 1; /* in the scope of a to-be-closed variable */
+  luaK_codeABC(fs, OP_TBC, stacklevel(fs, level), 0, 0);
 }
 
 
@@ -1788,9 +1782,10 @@ static void statement (LexState *ls) {
       break;
     }
   }
-  lua_assert(ls->fs->f->maxstacksize >= ls->fs->freereg &&
-             ls->fs->freereg >= luaY_nvarstack(ls->fs));
-  ls->fs->freereg = luaY_nvarstack(ls->fs);  /* free registers */
+  FuncState *fs = ls->fs;
+  lua_assert(fs->f->maxstacksize >= fs->freereg
+             && fs->freereg >= luaY_nvarstack(fs));
+  fs->freereg = luaY_nvarstack(fs); // free registers
   leavelevel(ls);
 }
 
@@ -1831,7 +1826,7 @@ LClosure *luaY_parser (lua_State *L, ZIO *z, Mbuffer *buff,
   mainfunc(&lexstate, &funcstate);
   lua_assert(!funcstate.prev && funcstate.f->upvalues.size() == 1 && !lexstate.fs);
   // all scopes should be correctly finished
-  lua_assert(dyd->actvar.size() == 0 && dyd->gt.size() == 0 && dyd->label.size() == 0);
+  lua_assert(dyd->actvar.empty() && dyd->gt.empty() && dyd->label.empty());
   L->top--; // remove scanner's table
   return cl; // closure is on the stack, too
 }
